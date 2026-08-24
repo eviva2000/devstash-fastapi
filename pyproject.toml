@@ -1,0 +1,35 @@
+[project]
+name = "devstash-fastapi"
+version = "0.1.0"
+description = "A FastAPI rebuild of DevStash"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116.0",
+    "uvicorn[standard]>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=1.0.0b1",
+    "mypy>=1.17.0",
+    "pytest>=8.4.0",
+    "ruff>=0.12.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]
