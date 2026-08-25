@@ -63,13 +63,10 @@ including:
 - loading, empty, validation, and error states;
 - accessible keyboard and screen-reader interactions.
 
-The frontend uses TypeScript, Tailwind CSS, shadcn/ui, Vitest for unit tests, and
-Playwright for end-to-end browser tests. Build tooling, routing, state management,
-and linting and formatting tools will be selected in the frontend-foundation spec.
-
-The React language choice, build tool, routing library, styling approach, state
-management, and test tools have not been selected. Those decisions must be recorded
-before the frontend foundation is implemented.
+The frontend uses TypeScript, Vite, Tailwind CSS, shadcn/ui, Vitest for unit tests,
+Playwright for end-to-end browser tests, ESLint for linting, Prettier for formatting,
+and npm for dependency management. Routing and state management will be selected when
+product features require them.
 
 ### Authentication and Accounts
 
@@ -95,8 +92,6 @@ The intended product is a full-stack web application consisting of:
 - a React frontend that consumes the API and provides the browser experience;
 - automated tests and quality checks for both layers.
 
-
-
 ## Technology Direction
 
 ### Current Backend Stack
@@ -118,13 +113,15 @@ The intended product is a full-stack web application consisting of:
 | --- | --- | --- |
 | UI library | React | Selected |
 | Frontend language | TypeScript | Selected |
-| Build tooling | To be selected | Requires a frontend-foundation spec |
-| Routing | To be selected | Requires a frontend-foundation spec |
+| Build tooling | Vite | Selected |
+| Package manager | npm | Selected |
+| Routing | To be selected | Deferred until required |
 | Styling | Tailwind CSS | Selected |
 | Component library | shadcn/ui | Selected |
 | Unit tests | Vitest | Selected |
 | End-to-end tests | Playwright | Selected |
-| Linting and formatting | To be selected | Requires a frontend-foundation spec |
+| Linting | ESLint | Selected |
+| Formatting | Prettier | Selected |
 
 ## Architecture Direction
 
@@ -192,15 +189,26 @@ Every feature gets one durable spec under `context/features/`. A spec defines:
 of its goals and notes for the feature skill. Planning or loading a feature does not
 mark it as implemented.
 
-## Running the Current Backend
+## Running the Application
+
+Start the backend from the repository root:
 
 ```bash
 uv sync
 uv run uvicorn devstash.main:app --app-dir src --reload
 ```
 
-The current endpoints are:
+Start the frontend in another terminal:
 
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The current application surfaces are:
+
+- Web application: `http://127.0.0.1:5173`
 - Health: `http://127.0.0.1:8000/health`
 - OpenAPI UI: `http://127.0.0.1:8000/docs`
 
@@ -211,13 +219,16 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
+cd frontend
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
+npm run build
+npm run test:e2e
 ```
 
 All checks must pass before a feature is eligible to commit.
-
-Frontend commands will be added here after its package manager and quality tools are
-selected. Once the React application exists, a full-stack feature must pass the
-relevant checks for both frontend and backend.
 
 ## Near-Term Roadmap
 

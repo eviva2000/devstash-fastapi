@@ -140,10 +140,14 @@ Create directories only when a feature needs them. Avoid empty architecture.
 
 ## Dependencies
 
-- Manage dependencies with `uv` in `pyproject.toml` and keep `uv.lock` updated.
+- Manage backend dependencies with `uv` in `pyproject.toml` and keep `uv.lock`
+  updated.
+- Manage frontend dependencies with npm in `frontend/package.json` and keep
+  `frontend/package-lock.json` updated.
 - Add a dependency only when the standard library and current dependencies are not a
   reasonable fit.
-- Put development-only tools in the `dev` dependency group.
+- Put backend development-only tools in the `dev` dependency group and frontend
+  development-only tools in `devDependencies`.
 
 ## Quality Checks
 
@@ -154,8 +158,11 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
+cd frontend
+npm run typecheck
+npm run lint
+npm run format:check
+npm run test
+npm run build
+npm run test:e2e
 ```
-
-Once the frontend is initialized, also run its Vitest suite and the Playwright tests
-relevant to the change. Exact commands will be documented after the package manager
-and scripts are selected.
