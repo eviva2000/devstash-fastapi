@@ -1,0 +1,161 @@
+# Coding Standards
+
+## Python
+
+- Support Python 3.12 or later, as declared in `pyproject.toml`.
+- Add type annotations to application code and tests.
+- Keep Mypy strict mode passing; do not silence errors without a documented reason.
+- Prefer standard-library types and modern syntax such as `str | None`.
+- Use `snake_case` for modules, functions, and variables; `PascalCase` for classes;
+  and `SCREAMING_SNAKE_CASE` for constants.
+- Keep functions focused and extract helpers when a function has multiple jobs.
+- Do not leave unused or commented-out code.
+
+## FastAPI
+
+- Keep the application entry point in `src/devstash/main.py`.
+- Group feature routes with `APIRouter` modules as the API grows; do not place every
+  route in `main.py`.
+- Declare request and response models explicitly.
+- Set `response_model` for JSON endpoints.
+- Use FastAPI dependencies for shared request concerns such as authentication and
+  database sessions.
+- Use `async def` only when the route or its dependencies perform asynchronous I/O.
+  Do not call blocking I/O directly from an async route.
+- Return appropriate HTTP status codes and stable, non-sensitive error messages.
+
+## Pydantic
+
+- Use Pydantic models at API boundaries for validation and serialization.
+- Prefer constrained types, enums, or `Literal` when the valid values are known.
+- Separate input, output, and persistence models when their fields or trust levels
+  differ.
+- Do not expose internal database fields or secrets in response models.
+
+## React
+
+- Use functional components and hooks.
+- Keep components focused on one responsibility.
+- Prefer composition over large components with many configuration branches.
+- Keep API access outside presentational components.
+- Represent loading, empty, error, and success states explicitly.
+- Preserve semantic HTML, keyboard access, visible focus, and accessible labels.
+
+## TypeScript
+
+- Enable strict type checking.
+- Do not use `any`; model uncertain values as `unknown` and narrow them safely.
+- Define types for component props, API contracts, and shared domain data.
+- Use inference where the type is obvious and explicit annotations where they clarify
+  a boundary.
+
+## Tailwind CSS and shadcn/ui
+
+- Use Tailwind CSS utilities for application styling.
+- Use shadcn/ui components when they provide the required accessible primitive.
+- Treat shadcn/ui components as project-owned source and adapt them deliberately.
+- Reuse established design tokens and variants instead of repeating arbitrary
+  colors, spacing, or component styles.
+- Extract shared components or variants when a visual pattern is repeated.
+- Avoid inline style attributes unless a value is genuinely dynamic.
+- Do not add another component or styling library without a documented decision.
+
+## Project Organization
+
+Use this structure as features are introduced:
+
+```text
+src/devstash/
+├── main.py                 # application creation and router registration
+├── api/                    # route modules and HTTP concerns
+├── models/                 # Pydantic API models
+├── services/               # application and integration logic
+├── repositories/           # persistence access, once a database is added
+└── core/                   # configuration and shared infrastructure
+tests/
+├── api/                    # endpoint tests
+├── services/               # service-level tests
+└── conftest.py             # shared fixtures, when needed
+frontend/                   # React application; internal structure to be selected
+```
+
+Create directories only when a feature needs them. Avoid empty architecture.
+
+## Data and Persistence
+
+- The database and persistence library are not selected yet.
+- Record the choice in a feature spec before adding a database dependency.
+- Use schema migrations for every database change; never mutate a shared schema
+  manually.
+- Keep persistence logic out of route handlers.
+- Make transaction boundaries explicit for operations that update related data.
+
+## Configuration and Secrets
+
+- Read environment-specific settings from environment variables through one typed
+  settings layer when configuration is introduced.
+- Never commit credentials, tokens, or production connection strings.
+- Maintain a safe `.env.example` when environment variables are required.
+- Fail clearly at startup when required configuration is missing.
+
+## Error Handling
+
+- Raise `HTTPException` for expected HTTP failures at the API boundary.
+- Translate domain and infrastructure failures into appropriate responses without
+  leaking stack traces or sensitive details.
+- Do not catch broad exceptions unless adding context, cleanup, or a deliberate
+  response; preserve the original cause when re-raising.
+
+## Testing
+
+- Use pytest.
+- Test behavior and public contracts instead of implementation details.
+- Cover success, validation failure, authorization failure, and important edge cases
+  relevant to the active spec.
+- Use FastAPI's `TestClient` for synchronous API tests unless the feature requires an
+  async client.
+- Keep tests deterministic and isolate external services with fakes or mocks at the
+  integration boundary.
+- Name tests after observable behavior, for example
+  `test_health_check_returns_ok`.
+
+### Frontend Unit Tests
+
+- Use Vitest for frontend unit tests.
+- Test components, hooks, state transitions, and utilities through observable
+  behavior.
+- Prefer queries that reflect how users find elements, such as accessible roles and
+  labels.
+- Mock network and browser boundaries rather than component implementation details.
+- Keep unit tests fast and independent of a running backend.
+
+### End-to-End Tests
+
+- Use Playwright for end-to-end browser tests.
+- Cover critical journeys across the React frontend and FastAPI backend.
+- Prefer user-visible locators such as roles, labels, and text over CSS selectors.
+- Keep test data isolated and setup deterministic.
+- Configure screenshots, traces, or videos for failures when useful.
+- Do not replace focused unit and API tests with broad end-to-end coverage.
+
+## Dependencies
+
+- Manage dependencies with `uv` in `pyproject.toml` and keep `uv.lock` updated.
+- Add a dependency only when the standard library and current dependencies are not a
+  reasonable fit.
+- Put development-only tools in the `dev` dependency group.
+
+## Quality Checks
+
+Run all checks before requesting a commit:
+
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+```
+
+Once the frontend is initialized, also run its Vitest suite and the Playwright tests
+relevant to the change. Exact commands will be documented after the package manager
+and scripts are selected.
