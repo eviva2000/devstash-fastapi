@@ -119,7 +119,7 @@ The intended product is a full-stack web application consisting of:
 | Frontend language | TypeScript | Selected |
 | Build tooling | Vite | Selected |
 | Package manager | npm | Selected |
-| Routing | To be selected | Deferred until required |
+| Routing | React Router | Selected |
 | Styling | Tailwind CSS | Selected |
 | Component library | shadcn/ui | Selected |
 | Unit tests | Vitest | Selected |

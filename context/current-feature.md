@@ -1,4 +1,4 @@
-# Current Feature: PostgreSQL Persistence Foundation
+# Current Feature: Dashboard UI
 
 ## Status
 
@@ -6,29 +6,21 @@ Completed
 
 ## Active Spec
 
-[PostgreSQL Persistence Foundation](features/persistence-foundation.md)
+[Dashboard UI](features/dashboard-ui.md)
 
 ## Goals
 
-- Select and configure PostgreSQL as the application database.
-- Add SQLAlchemy 2.x with asynchronous database sessions and Psycopg 3 as the
-  PostgreSQL driver.
-- Add Alembic and a documented workflow for creating, applying, inspecting, and
-  reverting schema migrations.
-- Introduce one typed settings layer for database configuration.
-- Provide a FastAPI dependency that gives each request its own database session and
-  always releases it.
-- Establish deterministic PostgreSQL integration tests for connection, transaction,
-  and migration behavior.
-- Document local database setup and persistence quality checks.
+- Add a responsive dark `/dashboard` route and top bar.
+- Build a collapsible desktop sidebar and accessible mobile drawer.
+- Present dashboard stats, collections, and at most six recent items from mock data.
+- Keep the dashboard UI-only until a later CRUD feature supplies real data.
 
 ## Notes
 
-- This infrastructure feature does not add domain tables, CRUD endpoints, or frontend
-  behavior; `GET /health` remains unchanged.
-- Selected PostgreSQL 18 Alpine through Docker Compose, Alembic's asynchronous
-  configuration using `DATABASE_URL`, and uniquely named disposable test databases
-  created by pytest against the Compose PostgreSQL server.
+- The attached dashboard phases are consolidated into one UI-only feature using typed local mock data; Item CRUD remains Not Started.
+- Search, New Item, and New Collection controls are display-only. The detail drawer is out of scope.
+- The desktop sidebar must remain visible while the dashboard content scrolls.
+- Mock data has no pinned items, and the dashboard has no pinned-items section.
 - The linked spec is the source of truth; goals here are its working copy.
 - Allowed statuses are `Not Started`, `In Progress`, `Blocked`, and `Completed`.
 
@@ -42,3 +34,6 @@ Completed
 - [PostgreSQL Persistence Foundation](features/persistence-foundation.md) - PostgreSQL
   18, typed settings, asynchronous SQLAlchemy sessions, Alembic migrations, and
   isolated database integration tests (Completed).
+- [Dashboard UI](features/dashboard-ui.md) - Responsive dark dashboard with React
+  Router, typed mock data, desktop sidebar, mobile drawer, stats, collections, and
+  item overviews (Completed).
