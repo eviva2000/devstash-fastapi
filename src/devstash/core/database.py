@@ -1,6 +1,6 @@
 """SQLAlchemy engine, metadata, and request-session infrastructure."""
 
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 
@@ -54,7 +54,7 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
 @asynccontextmanager
 async def session_context(
     session_factory: async_sessionmaker[AsyncSession],
-) -> AsyncIterator[AsyncSession]:
+) -> AsyncGenerator[AsyncSession]:
     """Guarantee rollback and cleanup around one session lifetime."""
 
     async with session_factory() as session:
