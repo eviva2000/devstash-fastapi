@@ -32,7 +32,12 @@ testing, and production-minded development practices.
 │   └── src/                  # frontend source and Vitest tests
 ├── migrations/               # Alembic environment and revisions
 ├── src/devstash/
+│   ├── api/                  # FastAPI route modules
 │   ├── core/                 # settings and persistence infrastructure
+│   ├── models/               # SQLAlchemy persistence models
+│   ├── repositories/         # database access boundaries
+│   ├── schemas/              # Pydantic API contracts
+│   ├── services/             # application workflows and transactions
 │   ├── __init__.py
 │   └── main.py
 ├── tests/                    # unit, API, and PostgreSQL integration tests
@@ -111,8 +116,9 @@ Then visit:
 - Health endpoint: <http://127.0.0.1:8000/health>
 - Interactive API docs: <http://127.0.0.1:8000/docs>
 
-Vite proxies `/api/*` to FastAPI during development, so the frontend can request
-`/api/health` without broadening the API's CORS policy.
+Vite proxies `/api/*` and `/health` to FastAPI without rewriting either path during
+development. Product requests therefore use the same canonical `/api` routes in the
+browser, FastAPI's OpenAPI schema, tests, and a future production deployment.
 
 The PostgreSQL data is stored in the `devstash_postgres_data` Docker volume and
 survives container restarts. Stop the service without deleting its data using:
@@ -204,7 +210,7 @@ not configured yet.
 
 ## Current API
 
-The public API currently exposes one process-level liveness endpoint:
+The process-level liveness endpoint remains outside the product API namespace:
 
 ```http
 GET /health
@@ -215,4 +221,15 @@ GET /health
 ```
 
 Database availability is intentionally excluded from this response. Product APIs
-will be introduced through their own feature specifications as domain work begins.
+for snippets, prompts, commands, and notes are available at:
+
+```http
+POST   /api/items
+GET    /api/items
+GET    /api/items/{id}
+PATCH  /api/items/{id}
+DELETE /api/items/{id}
+```
+
+Request and response schemas are documented in the interactive OpenAPI UI at
+<http://127.0.0.1:8000/docs>.

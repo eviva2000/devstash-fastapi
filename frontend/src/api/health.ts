@@ -13,7 +13,7 @@ function isHealthResponse(value: unknown): value is HealthResponse {
 export async function fetchHealth(
   signal?: AbortSignal,
 ): Promise<HealthResponse> {
-  const response = await fetch("/api/health", {
+  const response = await fetch("/health", {
     headers: { Accept: "application/json" },
     signal,
   });

@@ -1,4 +1,4 @@
-# Current Feature: Dashboard UI
+# Current Feature: Item CRUD
 
 ## Status
 
@@ -6,21 +6,32 @@ Completed
 
 ## Active Spec
 
-[Dashboard UI](features/dashboard-ui.md)
+[Item CRUD](features/item-crud.md)
 
 ## Goals
 
-- Add a responsive dark `/dashboard` route and top bar.
-- Build a collapsible desktop sidebar and accessible mobile drawer.
-- Present dashboard stats, collections, and at most six recent items from mock data.
-- Keep the dashboard UI-only until a later CRUD feature supplies real data.
+- Define one consistent item record for snippets, prompts, commands, and notes.
+- Provide a documented, typed JSON API to create, list, retrieve, update, and delete
+  items.
+- Persist items in PostgreSQL using SQLAlchemy models, repositories, and an Alembic
+  migration.
+- Add an accessible React interface for listing, creating, editing, and deleting
+  items with explicit loading, empty, validation, and error states.
+- Preserve clear backend and frontend boundaries for later product features.
 
 ## Notes
 
-- The attached dashboard phases are consolidated into one UI-only feature using typed local mock data; Item CRUD remains Not Started.
-- Search, New Item, and New Collection controls are display-only. The detail drawer is out of scope.
-- The desktop sidebar must remain visible while the dashboard content scrolls.
-- Mock data has no pinned items, and the dashboard has no pinned-items section.
+- This initial CRUD slice is unauthenticated and belongs to one local workspace.
+- Only snippet, prompt, command, and note items are supported. Collections, tags,
+  search, favorites, pins, links, files, images, and accounts remain out of scope.
+- The API is rooted at canonical FastAPI `/api/items` routes. Vite forwards `/api/*`
+  and `/health` unchanged.
+- React Router and the dashboard shell already exist; this feature does not select
+  another routing or state-management dependency.
+- Selecting an item opens its drawer. Viewing, editing, saving, and canceling happen
+  inside that drawer without changing routes.
+- Implementation and all documented quality gates are verified on
+  `feature/item-crud`; commit still requires user approval.
 - The linked spec is the source of truth; goals here are its working copy.
 - Allowed statuses are `Not Started`, `In Progress`, `Blocked`, and `Completed`.
 
@@ -37,3 +48,5 @@ Completed
 - [Dashboard UI](features/dashboard-ui.md) - Responsive dark dashboard with React
   Router, typed mock data, desktop sidebar, mobile drawer, stats, collections, and
   item overviews (Completed).
+- [Item CRUD](features/item-crud.md) - PostgreSQL-backed CRUD API and responsive
+  dashboard drawer workflow for snippets, prompts, commands, and notes (Completed).

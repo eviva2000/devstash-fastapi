@@ -24,7 +24,7 @@ export default defineConfig({
     {
       name: "FastAPI",
       command:
-        "uv run --offline uvicorn devstash.main:app --app-dir src --host 127.0.0.1 --port 8000",
+        "uv run --offline alembic upgrade head && uv run --offline uvicorn devstash.main:app --app-dir src --host 127.0.0.1 --port 8000",
       cwd: "..",
       env: {
         ...process.env,

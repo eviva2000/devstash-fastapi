@@ -38,6 +38,7 @@ const typeColors = {
 type DashboardSidebarProps = {
   collapsed?: boolean;
   mobile?: boolean;
+  ariaHidden?: boolean;
   onCollapse?: () => void;
   onClose?: () => void;
 };
@@ -45,6 +46,7 @@ type DashboardSidebarProps = {
 export function DashboardSidebar({
   collapsed = false,
   mobile = false,
+  ariaHidden,
   onCollapse,
   onClose,
 }: DashboardSidebarProps) {
@@ -86,6 +88,7 @@ export function DashboardSidebar({
     <aside
       ref={sidebarRef}
       aria-label="Dashboard navigation"
+      aria-hidden={ariaHidden}
       className={cn(
         "bg-card flex h-svh shrink-0 flex-col overflow-hidden",
         mobile

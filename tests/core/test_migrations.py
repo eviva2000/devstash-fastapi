@@ -14,7 +14,7 @@ from sqlalchemy.engine import make_url
 from devstash.core.config import get_settings
 from devstash.core.database import Base
 
-MIGRATION_HEAD = "20260825_0001"
+MIGRATION_HEAD = "20260826_0002"
 
 
 def _alembic_config() -> Config:
@@ -49,6 +49,39 @@ def _current_revision(database_url: str) -> str | None:
     return None if row is None else str(row[0])
 
 
+def _items_table_exists(database_url: str) -> bool:
+    with connect(_direct_connection_url(database_url)) as connection:
+        result = connection.execute("SELECT to_regclass('public.items') IS NOT NULL")
+        row = result.fetchone()
+        if row is None:
+            raise AssertionError("Expected the table-existence query to return a row")
+        return bool(row[0])
+
+
+def _item_constraint_names(database_url: str) -> set[str]:
+    with connect(_direct_connection_url(database_url)) as connection:
+        result = connection.execute(
+            """
+            SELECT conname
+            FROM pg_constraint
+            WHERE conrelid = 'public.items'::regclass
+            """
+        )
+        return {str(row[0]) for row in result.fetchall()}
+
+
+def _item_index_names(database_url: str) -> set[str]:
+    with connect(_direct_connection_url(database_url)) as connection:
+        result = connection.execute(
+            """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = 'items'
+            """
+        )
+        return {str(row[0]) for row in result.fetchall()}
+
+
 def test_migrations_upgrade_downgrade_and_return_to_head(
     database_url: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -58,12 +91,23 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
 
         command.upgrade(config, "head")
         assert _current_revision(database_url) == MIGRATION_HEAD
+        assert _items_table_exists(database_url)
+        assert {
+            "ck_items_item_type_valid",
+            "ck_items_title_not_blank",
+            "ck_items_content_not_blank",
+            "ck_items_language_for_snippet",
+            "pk_items",
+        } <= _item_constraint_names(database_url)
+        assert "ix_items_updated_at_id" in _item_index_names(database_url)
 
         command.downgrade(config, "base")
         assert _current_revision(database_url) is None
+        assert not _items_table_exists(database_url)
 
         command.upgrade(config, "head")
         assert _current_revision(database_url) == MIGRATION_HEAD
+        assert _items_table_exists(database_url)
 
 
 def test_alembic_check_detects_metadata_drift(

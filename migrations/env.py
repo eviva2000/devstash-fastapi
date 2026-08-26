@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from devstash.core.config import get_settings
 from devstash.core.database import Base
+from devstash.models.item import Item  # noqa: F401
 
 config = context.config
 

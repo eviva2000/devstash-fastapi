@@ -12,18 +12,15 @@ import {
 import type { RefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { type Item, type ItemType } from "@/api/items";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { ItemDrawer } from "@/components/items/item-drawer";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  collections,
-  recentItems,
-  resourceTypes,
-  type Collection,
-  type DashboardItem,
-} from "@/lib/mock-data";
+import { useItems, type ItemLoadState } from "@/hooks/use-items";
+import { collections, type Collection } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
-const itemIcons = {
+const itemIcons: Record<ItemType, typeof Braces> = {
   snippet: Braces,
   prompt: Sparkles,
   command: Terminal,
@@ -37,29 +34,63 @@ const accentClasses = {
   slate: "border-l-slate-500",
 };
 
+type ItemDrawerState = { mode: "create" } | { mode: "view"; itemId: string };
+
 export function DashboardPage() {
   const [collapsed, setCollapsed] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
+  const [itemDrawer, setItemDrawer] = useState<ItemDrawerState | null>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
-  const drawerWasOpen = useRef(false);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  const newItemButtonRef = useRef<HTMLButtonElement>(null);
+  const navigationDrawerWasOpen = useRef(false);
+  const itemDrawerWasOpen = useRef(false);
+  const itemDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const {
+    items,
+    state: itemState,
+    error: itemError,
+    retry,
+    create,
+    update,
+    remove,
+  } = useItems();
+  const closeNavigationDrawer = useCallback(
+    () => setNavigationDrawerOpen(false),
+    [],
+  );
+  const closeItemDrawer = useCallback(() => setItemDrawer(null), []);
+  const openItemDrawer = useCallback((state: ItemDrawerState) => {
+    itemDrawerTriggerRef.current = document.activeElement as HTMLElement | null;
+    setItemDrawer(state);
+  }, []);
+
   useEffect(() => {
-    if (drawerWasOpen.current && !drawerOpen) {
+    if (navigationDrawerWasOpen.current && !navigationDrawerOpen) {
       navigationButtonRef.current?.focus();
     }
-    drawerWasOpen.current = drawerOpen;
-  }, [drawerOpen]);
-  const totalItems = resourceTypes.reduce(
-    (total, type) => total + type.count,
-    0,
-  );
+    navigationDrawerWasOpen.current = navigationDrawerOpen;
+  }, [navigationDrawerOpen]);
+
+  useEffect(() => {
+    const isOpen = itemDrawer !== null;
+    if (itemDrawerWasOpen.current && !isOpen) {
+      if (itemDrawerTriggerRef.current?.isConnected) {
+        itemDrawerTriggerRef.current.focus();
+      } else {
+        newItemButtonRef.current?.focus();
+      }
+    }
+    itemDrawerWasOpen.current = isOpen;
+  }, [itemDrawer]);
+
+  const selectedItem =
+    itemDrawer?.mode === "view"
+      ? items.find((item) => item.id === itemDrawer.itemId)
+      : undefined;
   const stats = [
-    { label: "Total items", value: totalItems },
+    { label: "Total items", value: itemState === "ready" ? items.length : "—" },
     { label: "Collections", value: collections.length },
-    {
-      label: "Favorite items",
-      value: recentItems.filter((item) => item.favorite).length,
-    },
+    { label: "Favorite items", value: 0 },
     {
       label: "Favorite collections",
       value: collections.filter((collection) => collection.favorite).length,
@@ -70,15 +101,16 @@ export function DashboardPage() {
     <main className="bg-background text-foreground flex min-h-svh">
       <DashboardSidebar
         collapsed={collapsed}
+        ariaHidden={itemDrawer !== null ? true : undefined}
         onCollapse={() => setCollapsed((value) => !value)}
       />
-      {drawerOpen && (
+      {navigationDrawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
             aria-label="Close navigation overlay"
             className="absolute inset-0 bg-black/70"
-            onClick={closeDrawer}
+            onClick={closeNavigationDrawer}
           />
           <div
             role="dialog"
@@ -86,17 +118,21 @@ export function DashboardPage() {
             aria-label="Mobile navigation"
             className="relative w-fit"
           >
-            <DashboardSidebar mobile onClose={closeDrawer} />
+            <DashboardSidebar mobile onClose={closeNavigationDrawer} />
           </div>
         </div>
       )}
       <section
-        aria-hidden={drawerOpen ? true : undefined}
+        aria-hidden={
+          navigationDrawerOpen || itemDrawer !== null ? true : undefined
+        }
         className="min-w-0 flex-1"
       >
         <DashboardTopbar
           navigationButtonRef={navigationButtonRef}
-          onOpenNavigation={() => setDrawerOpen(true)}
+          newItemButtonRef={newItemButtonRef}
+          onOpenNavigation={() => setNavigationDrawerOpen(true)}
+          onNewItem={() => openItemDrawer({ mode: "create" })}
         />
         <div className="mx-auto max-w-[104rem] p-4 sm:p-6 lg:p-8">
           <header>
@@ -142,9 +178,42 @@ export function DashboardPage() {
               ))}
             </div>
           </section>
-          <ItemSection title="Recent items" items={recentItems} />
+          <ItemSection
+            title="Recent items"
+            items={items.slice(0, 6)}
+            state={itemState}
+            error={itemError}
+            onRetry={() => void retry()}
+            onCreate={() => openItemDrawer({ mode: "create" })}
+            onSelect={(item) =>
+              openItemDrawer({ mode: "view", itemId: item.id })
+            }
+          />
         </div>
       </section>
+      {itemDrawer?.mode === "create" && (
+        <ItemDrawer
+          key="create-item"
+          mode="create"
+          onClose={closeItemDrawer}
+          onCreate={create}
+          onUpdate={update}
+          onDelete={remove}
+          onCreated={(item) => setItemDrawer({ mode: "view", itemId: item.id })}
+        />
+      )}
+      {itemDrawer?.mode === "view" && selectedItem && (
+        <ItemDrawer
+          key={selectedItem.id}
+          mode="view"
+          item={selectedItem}
+          onClose={closeItemDrawer}
+          onCreate={create}
+          onUpdate={update}
+          onDelete={remove}
+          onCreated={(item) => setItemDrawer({ mode: "view", itemId: item.id })}
+        />
+      )}
     </main>
   );
 }
@@ -152,9 +221,13 @@ export function DashboardPage() {
 function DashboardTopbar({
   onOpenNavigation,
   navigationButtonRef,
+  newItemButtonRef,
+  onNewItem,
 }: {
   onOpenNavigation: () => void;
   navigationButtonRef: RefObject<HTMLButtonElement | null>;
+  newItemButtonRef: RefObject<HTMLButtonElement | null>;
+  onNewItem: () => void;
 }) {
   return (
     <header className="border-border bg-background/90 sticky top-0 z-30 flex h-20 items-center gap-3 border-b px-4 backdrop-blur sm:px-6">
@@ -186,8 +259,10 @@ function DashboardTopbar({
         <span>New Collection</span>
       </button>
       <button
+        ref={newItemButtonRef}
         type="button"
         aria-label="New item"
+        onClick={onNewItem}
         className="bg-foreground text-background hover:bg-foreground/90 flex h-11 items-center gap-2 rounded-lg px-3 sm:px-4"
       >
         <Plus aria-hidden="true" className="size-5" />
@@ -240,9 +315,19 @@ function CollectionCard({ collection }: { collection: Collection }) {
 function ItemSection({
   title,
   items,
+  state,
+  error,
+  onRetry,
+  onCreate,
+  onSelect,
 }: {
   title: string;
-  items: DashboardItem[];
+  items: Item[];
+  state: ItemLoadState;
+  error: string | null;
+  onRetry: () => void;
+  onCreate: () => void;
+  onSelect: (item: Item) => void;
 }) {
   return (
     <section
@@ -259,50 +344,103 @@ function ItemSection({
         data-testid="recent-items-grid"
         className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-4"
       >
-        {items.map((item) => (
-          <ItemRow key={item.id} item={item} />
-        ))}
+        {state === "loading" && (
+          <p
+            role="status"
+            className="text-muted-foreground col-span-full py-10"
+          >
+            Loading items…
+          </p>
+        )}
+        {state === "error" && (
+          <div
+            role="alert"
+            className="border-border bg-card/35 col-span-full rounded-xl border p-6"
+          >
+            <p>{error ?? "Items could not be loaded."}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="border-border hover:bg-muted mt-4 rounded-lg border px-4 py-2"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {state === "ready" && items.length === 0 && (
+          <div className="border-border bg-card/35 col-span-full rounded-xl border p-8 text-center">
+            <h3 className="font-semibold">No items yet</h3>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Save your first snippet, prompt, command, or note.
+            </p>
+            <button
+              type="button"
+              onClick={onCreate}
+              className="bg-foreground text-background mt-5 rounded-lg px-4 py-2"
+            >
+              Create your first item
+            </button>
+          </div>
+        )}
+        {state === "ready" &&
+          items.map((item) => (
+            <ItemCard key={item.id} item={item} onSelect={onSelect} />
+          ))}
       </div>
     </section>
   );
 }
 
-function ItemRow({ item }: { item: DashboardItem }) {
-  const Icon = itemIcons[item.type];
+function ItemCard({
+  item,
+  onSelect,
+}: {
+  item: Item;
+  onSelect: (item: Item) => void;
+}) {
+  const Icon = itemIcons[item.item_type];
   return (
     <Card className="bg-card/35 border-l-primary h-full border-l-[3px]">
-      <CardContent className="flex h-full min-h-48 flex-col p-5">
-        <div className="flex items-start justify-between gap-3">
-          <span className="bg-primary/10 grid size-11 shrink-0 place-items-center rounded-lg">
-            <Icon aria-hidden="true" className="text-primary size-5" />
-          </span>
-          <time className="text-muted-foreground text-xs">{item.date}</time>
-        </div>
-        <div className="mt-5 min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+      <button
+        type="button"
+        aria-label={`Open ${item.title}`}
+        onClick={() => onSelect(item)}
+        className="focus-visible:ring-ring h-full rounded-xl text-left outline-none focus-visible:ring-2"
+      >
+        <CardContent className="flex h-full min-h-48 flex-col p-5">
+          <div className="flex items-start justify-between gap-3">
+            <span className="bg-primary/10 grid size-11 shrink-0 place-items-center rounded-lg">
+              <Icon aria-hidden="true" className="text-primary size-5" />
+            </span>
+            <time className="text-muted-foreground text-xs">
+              {formatRecentDate(item.updated_at)}
+            </time>
+          </div>
+          <div className="mt-5 min-w-0 flex-1">
             <h3 className="truncate font-semibold">{item.title}</h3>
-            {item.favorite && (
-              <Star
-                aria-label="Favorite item"
-                className="size-4 fill-yellow-400 text-yellow-400"
-              />
-            )}
-          </div>
-          <p className="text-muted-foreground mt-1 truncate text-sm">
-            {item.description}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {item.tags.map((tag) => (
-              <span
-                className="bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs"
-                key={tag}
-              >
-                {tag}
+            <p className="text-muted-foreground mt-1 line-clamp-3 text-sm whitespace-pre-wrap">
+              {item.content}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs">
+                {item.item_type}
               </span>
-            ))}
+              {item.language && (
+                <span className="bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs">
+                  {item.language}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      </button>
     </Card>
   );
+}
+
+function formatRecentDate(value: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }
