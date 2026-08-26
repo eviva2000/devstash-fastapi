@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { type Item, type ItemInput } from "@/api/items";
 import { ItemForm } from "@/components/items/item-form";
+import { MarkdownEditor } from "@/components/items/markdown-editor";
 
 type ItemDrawerProps = {
   mode: "create" | "view";
@@ -183,9 +184,19 @@ function ItemDetails({
       <h3 className="text-muted-foreground mt-8 text-sm font-medium">
         Content
       </h3>
-      <pre className="border-border bg-background mt-3 overflow-x-auto rounded-lg border p-4 font-mono text-sm leading-6 whitespace-pre-wrap">
-        {item.content}
-      </pre>
+      <div className="mt-3">
+        {item.item_type === "note" || item.item_type === "prompt" ? (
+          <MarkdownEditor
+            value={item.content}
+            label={`${item.title} content`}
+            readOnly
+          />
+        ) : (
+          <pre className="border-border bg-background overflow-x-auto rounded-lg border p-4 font-mono text-sm leading-6 whitespace-pre-wrap">
+            {item.content}
+          </pre>
+        )}
+      </div>
       <dl className="border-border text-muted-foreground mt-8 grid grid-cols-2 gap-4 border-t pt-5 text-sm">
         <div>
           <dt>Created</dt>

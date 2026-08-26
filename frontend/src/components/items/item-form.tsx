@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { itemTypes, type Item, type ItemInput } from "@/api/items";
+import { MarkdownEditor } from "@/components/items/markdown-editor";
 
 type ItemFormProps = {
   item?: Item;
@@ -29,6 +30,7 @@ export function ItemForm({
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [requestError, setRequestError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const usesMarkdown = itemType === "note" || itemType === "prompt";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,21 +115,44 @@ export function ItemForm({
         </Field>
       )}
       <Field label="Content" htmlFor="item-content" error={fieldErrors.content}>
-        <textarea
-          id="item-content"
-          value={content}
-          maxLength={50_000}
-          rows={12}
-          aria-invalid={fieldErrors.content ? true : undefined}
-          aria-describedby={
-            fieldErrors.content ? "item-content-error" : undefined
-          }
-          onChange={(event) => {
-            setContent(event.target.value);
-            setFieldErrors((current) => ({ ...current, content: undefined }));
-          }}
-          className={inputClasses}
-        />
+        {usesMarkdown ? (
+          <MarkdownEditor
+            id="item-content"
+            label="Content"
+            value={content}
+            maxLength={50_000}
+            ariaInvalid={fieldErrors.content ? true : undefined}
+            ariaDescribedBy={
+              fieldErrors.content ? "item-content-error" : undefined
+            }
+            onChange={(value) => {
+              setContent(value);
+              setFieldErrors((current) => ({
+                ...current,
+                content: undefined,
+              }));
+            }}
+          />
+        ) : (
+          <textarea
+            id="item-content"
+            value={content}
+            maxLength={50_000}
+            rows={12}
+            aria-invalid={fieldErrors.content ? true : undefined}
+            aria-describedby={
+              fieldErrors.content ? "item-content-error" : undefined
+            }
+            onChange={(event) => {
+              setContent(event.target.value);
+              setFieldErrors((current) => ({
+                ...current,
+                content: undefined,
+              }));
+            }}
+            className={inputClasses}
+          />
+        )}
       </Field>
       <div className="flex justify-end gap-3">
         <button

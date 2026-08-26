@@ -1,4 +1,4 @@
-# Current Feature: Item CRUD
+# Current Feature: Markdown Editor
 
 ## Status
 
@@ -6,32 +6,34 @@ Completed
 
 ## Active Spec
 
-[Item CRUD](features/item-crud.md)
+[Markdown Editor](features/markdown-editor.md)
 
 ## Goals
 
-- Define one consistent item record for snippets, prompts, commands, and notes.
-- Provide a documented, typed JSON API to create, list, retrieve, update, and delete
-  items.
-- Persist items in PostgreSQL using SQLAlchemy models, repositories, and an Alembic
-  migration.
-- Add an accessible React interface for listing, creating, editing, and deleting
-  items with explicit loading, empty, validation, and error states.
-- Preserve clear backend and frontend boundaries for later product features.
+- Create a reusable `MarkdownEditor` component with accessible Write and Preview
+  tabs.
+- Render GitHub Flavored Markdown using `react-markdown` and `remark-gfm`.
+- Use the Markdown editor for note and prompt content in item creation, editing, and
+  read-only drawer views.
+- Match the established dark item-content styling, including a copy control and a
+  fluid content area capped at 400px.
+- Give headings, code, lists, blockquotes, links, and tables reliable dark-theme
+  presentation through a dedicated `.markdown-preview` CSS class.
 
 ## Notes
 
-- This initial CRUD slice is unauthenticated and belongs to one local workspace.
-- Only snippet, prompt, command, and note items are supported. Collections, tags,
-  search, favorites, pins, links, files, images, and accounts remain out of scope.
-- The API is rooted at canonical FastAPI `/api/items` routes. Vite forwards `/api/*`
-  and `/health` unchanged.
-- React Router and the dashboard shell already exist; this feature does not select
-  another routing or state-management dependency.
-- Selecting an item opens its drawer. Viewing, editing, saving, and canceling happen
-  inside that drawer without changing routes.
-- Implementation and all documented quality gates are verified on
-  `feature/item-crud`; commit still requires user approval.
+- This is a frontend-only presentation feature; item API and database contracts do
+  not change.
+- The actual creation surface is `ItemForm` inside create-mode `ItemDrawer`; no
+  separate `NewItemDialog` currently exists.
+- No `CodeEditor` currently exists. Snippet and command edit/view behavior must stay
+  unchanged rather than adding one under this feature.
+- Markdown applies only to notes and prompts, and raw HTML rendering remains
+  disabled.
+- The explicitly requested `react-markdown` and `remark-gfm` dependencies are
+  installed and locked for the frontend.
+- Successful copy will show temporary visible “Copied” feedback in an accessible
+  live region; failures will be reported without changing content.
 - The linked spec is the source of truth; goals here are its working copy.
 - Allowed statuses are `Not Started`, `In Progress`, `Blocked`, and `Completed`.
 
@@ -50,3 +52,5 @@ Completed
   item overviews (Completed).
 - [Item CRUD](features/item-crud.md) - PostgreSQL-backed CRUD API and responsive
   dashboard drawer workflow for snippets, prompts, commands, and notes (Completed).
+- [Markdown Editor](features/markdown-editor.md) - Accessible Markdown writing and
+  GitHub Flavored Markdown previews for note and prompt workflows (Completed).

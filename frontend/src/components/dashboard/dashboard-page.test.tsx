@@ -171,7 +171,48 @@ test("creates an item with field validation and conditional language input", asy
       name: created.title,
     }),
   ).toBeVisible();
+  expect(
+    within(screen.getByRole("dialog")).getByRole("tab", { name: "Preview" }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(
+    within(screen.getByRole("dialog")).queryByRole("textbox", {
+      name: "Content",
+    }),
+  ).not.toBeInTheDocument();
   expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
+});
+
+test("renders and edits prompt Markdown inside the item drawer", async () => {
+  const prompt: Item = {
+    ...items[1],
+    title: "Review prompt",
+    content: "# Review checklist\n\n- Check types",
+    item_type: "prompt",
+  };
+  apiMocks.fetchItems.mockResolvedValueOnce([prompt]);
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Open Review prompt" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Review prompt" });
+  expect(
+    within(dialog).getByRole("heading", { name: "Review checklist", level: 1 }),
+  ).toBeVisible();
+  expect(
+    within(dialog).queryByRole("tab", { name: "Write" }),
+  ).not.toBeInTheDocument();
+  expect(within(dialog).getByRole("tab", { name: "Preview" })).toBeVisible();
+
+  await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+  expect(within(dialog).getByRole("tab", { name: "Write" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(within(dialog).getByRole("textbox", { name: "Content" })).toHaveValue(
+    prompt.content,
+  );
 });
 
 test("cancels drawer editing without changing the item", async () => {
@@ -211,7 +252,12 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   });
   await user.click(itemButton);
   let dialog = screen.getByRole("dialog", { name: "useAuth Hook" });
+  expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
+  expect(
+    within(dialog).getByText(items[0].content, { selector: "pre" }),
+  ).toBeVisible();
   await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+  expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
   const titleInput = within(dialog).getByLabelText("Title");
   await user.clear(titleInput);
   await user.type(titleInput, updated.title);
