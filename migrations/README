@@ -1,0 +1,4 @@
+Alembic migration environment for the DevStash PostgreSQL schema.
+
+Create revisions with `uv run alembic revision --autogenerate -m "description"`.
+Review every generated upgrade and downgrade before applying or committing it.

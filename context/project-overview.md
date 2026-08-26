@@ -75,7 +75,6 @@ library, session or token strategy, and account schema have not been selected.
 
 ### Future Integrations
 
-- PostgreSQL persistence.
 - Object storage for files and images.
 - Stripe subscriptions.
 - OpenAI-powered tagging, descriptions, code explanations, and prompt optimization.
@@ -102,6 +101,11 @@ The intended product is a full-stack web application consisting of:
 | API framework | FastAPI | Routing, dependency injection, and OpenAPI |
 | Server | Uvicorn | ASGI development and production server |
 | Validation | Pydantic | Typed request and response models |
+| Settings | pydantic-settings | Typed environment configuration |
+| Database | PostgreSQL 18 | Relational persistence |
+| ORM | SQLAlchemy 2.x asyncio | Models, queries, and sessions |
+| Database driver | Psycopg 3 | Asynchronous PostgreSQL connectivity |
+| Migrations | Alembic | Versioned schema changes |
 | Environment manager | uv | Dependencies, lockfile, and command execution |
 | Tests | pytest + FastAPI TestClient | Automated behavior verification |
 | Lint and format | Ruff | Code quality and formatting |
@@ -136,9 +140,11 @@ FastAPI routes          API validation and HTTP semantics
     |
 Application services   Use cases and business rules
     |
-Repositories           Persistence boundary, when introduced
+Repositories           Persistence boundary for domain features
     |
-PostgreSQL              Planned; library and hosting undecided
+SQLAlchemy + Psycopg    Async persistence infrastructure
+    |
+PostgreSQL 18           Local development through Docker Compose
 ```
 
 External services should be accessed behind focused integration boundaries rather
@@ -159,19 +165,22 @@ devstash-fastapi/
 │       ├── _template.md
 │       └── <feature-name>.md
 ├── exercises/
-├── frontend/                 # React application, once initialized
+├── docker/postgres/          # Local PostgreSQL initialization
+├── frontend/                 # React application
+├── migrations/               # Alembic migration environment and revisions
 ├── src/devstash/
+│   ├── core/                 # settings and database infrastructure
 │   ├── __init__.py
 │   └── main.py
 ├── tests/
+├── alembic.ini
+├── compose.yaml
 ├── pyproject.toml
 └── uv.lock
 ```
 
-The `api`, `models`, `services`, `repositories`, and `core` backend packages described
-in the coding standards should be created only when an implemented feature needs
-them. The exact React directory structure will be chosen in the frontend-foundation
-spec rather than assumed here.
+The `api`, `models`, `services`, and `repositories` backend packages described in the
+coding standards should be created only when an implemented feature needs them.
 
 ## Feature Specification Process
 
@@ -195,6 +204,9 @@ Start the backend from the repository root:
 
 ```bash
 uv sync
+cp .env.example .env
+docker compose up -d postgres
+uv run alembic upgrade head
 uv run uvicorn devstash.main:app --app-dir src --reload
 ```
 
@@ -219,6 +231,7 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
+uv run alembic check
 cd frontend
 npm run typecheck
 npm run lint
@@ -237,7 +250,7 @@ begins.
 
 1. Specify and initialize the React frontend foundation.
 2. Establish shared frontend/backend development and configuration workflows.
-3. Select and configure persistence and migrations.
+3. Select and configure persistence and migrations. (Completed)
 4. Define item types and implement item CRUD across the API and UI.
 5. Implement collections and tags across the API and UI.
 6. Add search and pagination.

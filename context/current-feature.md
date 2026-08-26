@@ -1,4 +1,4 @@
-# Current Feature: Full-Stack Application Foundation
+# Current Feature: PostgreSQL Persistence Foundation
 
 ## Status
 
@@ -6,25 +6,29 @@ Completed
 
 ## Active Spec
 
-[Full-Stack Application Foundation](features/application-foundation.md)
+[PostgreSQL Persistence Foundation](features/persistence-foundation.md)
 
 ## Goals
 
-- Create a runnable React and TypeScript application under `frontend/`.
-- Configure Tailwind CSS and initialize shadcn/ui as the frontend styling and
-  component foundation.
-- Add a minimal accessible application shell that displays the DevStash name and the
-  current FastAPI health status.
-- Establish a documented local development connection between the React application
-  and the FastAPI API.
-- Configure Vitest for frontend unit tests and Playwright for full-stack end-to-end
-  tests.
-- Provide consistent frontend scripts and documentation for development, building,
-  testing, linting, and formatting.
+- Select and configure PostgreSQL as the application database.
+- Add SQLAlchemy 2.x with asynchronous database sessions and Psycopg 3 as the
+  PostgreSQL driver.
+- Add Alembic and a documented workflow for creating, applying, inspecting, and
+  reverting schema migrations.
+- Introduce one typed settings layer for database configuration.
+- Provide a FastAPI dependency that gives each request its own database session and
+  always releases it.
+- Establish deterministic PostgreSQL integration tests for connection, transaction,
+  and migration behavior.
+- Document local database setup and persistence quality checks.
 
 ## Notes
 
-- Selected Vite, npm, ESLint, Prettier, and a Vite `/api` development proxy.
+- This infrastructure feature does not add domain tables, CRUD endpoints, or frontend
+  behavior; `GET /health` remains unchanged.
+- Selected PostgreSQL 18 Alpine through Docker Compose, Alembic's asynchronous
+  configuration using `DATABASE_URL`, and uniquely named disposable test databases
+  created by pytest against the Compose PostgreSQL server.
 - The linked spec is the source of truth; goals here are its working copy.
 - Allowed statuses are `Not Started`, `In Progress`, `Blocked`, and `Completed`.
 
@@ -35,3 +39,6 @@ Completed
 - [Full-Stack Application Foundation](features/application-foundation.md) - React and
   TypeScript frontend with Vite, Tailwind CSS, shadcn/ui, FastAPI health integration,
   Vitest, and Playwright (Completed).
+- [PostgreSQL Persistence Foundation](features/persistence-foundation.md) - PostgreSQL
+  18, typed settings, asynchronous SQLAlchemy sessions, Alembic migrations, and
+  isolated database integration tests (Completed).

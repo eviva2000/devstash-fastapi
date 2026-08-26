@@ -8,16 +8,20 @@ with a React and TypeScript frontend.
 ```text
 .
 ├── context/                  # project guidance and feature specs
+├── docker/postgres/          # local database initialization
 ├── frontend/                 # React, Vite, Tailwind CSS, and shadcn/ui
 │   ├── e2e/                  # Playwright tests
 │   └── src/                  # frontend source and Vitest tests
+├── migrations/               # Alembic environment and revisions
 ├── src/devstash/
+│   ├── core/                 # settings and persistence infrastructure
 │   ├── __init__.py
 │   └── main.py
-├── tests/
-│   └── test_health.py
+├── tests/                    # unit, API, and PostgreSQL integration tests
 ├── exercises/
 │   └── 01_health_endpoint.md
+├── alembic.ini
+├── compose.yaml
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -33,12 +37,25 @@ Requirements:
 - uv
 - Node.js 20.19 or later
 - npm
+- Docker Desktop or another Docker Compose-compatible runtime
 
 Install backend dependencies from the repository root:
 
 ```bash
 uv sync
 ```
+
+Create the local settings file, start PostgreSQL 18, and apply migrations:
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+docker compose ps
+uv run alembic upgrade head
+```
+
+The values in `.env.example` are local-only teaching credentials. Use distinct,
+secret credentials in every deployed environment and never commit `.env`.
 
 Install frontend dependencies and Playwright's Chromium browser:
 
@@ -50,7 +67,14 @@ npx playwright install chromium
 
 ## Development
 
-Start FastAPI from the repository root:
+Ensure PostgreSQL is running and current before starting FastAPI:
+
+```bash
+docker compose up -d postgres
+uv run alembic upgrade head
+```
+
+Then start FastAPI from the repository root:
 
 ```bash
 uv run uvicorn devstash.main:app --app-dir src --reload
@@ -72,6 +96,38 @@ Then visit:
 Vite proxies `/api/*` to FastAPI during development, so the frontend can request
 `/api/health` without broadening the API's CORS policy.
 
+The PostgreSQL data is stored in the `devstash_postgres_data` Docker volume and
+survives container restarts. Stop the service without deleting its data using:
+
+```bash
+docker compose stop postgres
+```
+
+`docker compose down --volumes` permanently deletes the local database volume; use
+it only when you intentionally want a fresh local database.
+
+## Database migrations
+
+All commands run from the repository root and read `DATABASE_URL` through the same
+typed settings layer as the application.
+
+```bash
+# Create a candidate migration from SQLAlchemy metadata.
+uv run alembic revision --autogenerate -m "describe the schema change"
+
+# Apply all migrations, inspect state and history, or revert one revision.
+uv run alembic upgrade head
+uv run alembic current
+uv run alembic history
+uv run alembic downgrade -1
+
+# Fail if model metadata and the migration head differ.
+uv run alembic check
+```
+
+Review every generated migration before applying or committing it. Every repository
+migration must implement both `upgrade()` and `downgrade()`.
+
 ## Backend quality checks
 
 ```bash
@@ -79,7 +135,14 @@ uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy
+uv run alembic check
 ```
+
+Start the Compose PostgreSQL service before running pytest or `alembic check`.
+Pytest creates one uniquely named `devstash_test_*` database and removes it after the
+suite, leaving the development database untouched. For a non-default local server,
+set `TEST_DATABASE_URL` for the application role and `TEST_DATABASE_ADMIN_URL` for a
+role allowed to create and drop those disposable test databases.
 
 To let Ruff format the code instead of only checking it:
 
