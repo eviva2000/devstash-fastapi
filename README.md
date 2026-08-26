@@ -1,7 +1,25 @@
 # DevStash
 
-A teaching-focused full-stack rebuild of DevStash using a Python and FastAPI backend
-with a React and TypeScript frontend.
+DevStash is a full-stack knowledge workspace for developers—a single place to
+organize reusable snippets, prompts, commands, notes, links, and other technical
+resources.
+
+This repository is an incremental, teaching-focused rebuild of DevStash with a
+FastAPI backend, a React and TypeScript frontend, and PostgreSQL persistence. The
+project emphasizes explicit feature specifications, clear architecture, automated
+testing, and production-minded development practices.
+
+
+## Technology stack
+
+| Area | Technologies |
+| --- | --- |
+| Backend | Python 3.12+, FastAPI, Pydantic, Uvicorn |
+| Persistence | PostgreSQL 18, SQLAlchemy 2.x asyncio, Psycopg 3, Alembic |
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS, shadcn/ui |
+| Testing | pytest, Vitest, Testing Library, Playwright |
+| Quality | Ruff, strict Mypy, ESLint, Prettier |
+| Tooling | uv, npm, Docker Compose |
 
 ## Project structure
 
@@ -184,12 +202,17 @@ npm run build
 The static production output is written to `frontend/dist/`. Production hosting is
 not configured yet.
 
-## What the first endpoint teaches
+## Current API
 
-`app = FastAPI(...)` creates the ASGI web application. The `@app.get` decorator
-connects an HTTP `GET /health` request to the `health_check` Python function.
-The return annotation and `response_model` describe and validate the JSON response.
+The public API currently exposes one process-level liveness endpoint:
 
-The function is `async` because FastAPI supports asynchronous request handlers.
-There is no awaited I/O yet, but later endpoints can await database or network work
-without blocking the server worker.
+```http
+GET /health
+```
+
+```json
+{"status":"ok"}
+```
+
+Database availability is intentionally excluded from this response. Product APIs
+will be introduced through their own feature specifications as domain work begins.
