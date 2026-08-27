@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Completed
 
 ## Summary
 
@@ -86,33 +86,33 @@ Behavior:
 
 ## Acceptance Criteria
 
-- [ ] Required Monaco frontend dependencies are declared and the npm lockfile is
+- [x] Required Monaco frontend dependencies are declared and the npm lockfile is
   updated.
-- [ ] `CodeEditor` is a reusable, controlled, typed component with editable and
+- [x] `CodeEditor` is a reusable, controlled, typed component with editable and
   read-only modes.
-- [ ] Monaco renders with a dark theme and syntax mode derived from the resolved
+- [x] Monaco renders with a dark theme and syntax mode derived from the resolved
   language.
-- [ ] Snippets and commands use `CodeEditor` when created or edited through
+- [x] Snippets and commands use `CodeEditor` when created or edited through
   `ItemForm`.
-- [ ] Snippets and commands use read-only `CodeEditor` presentation in `ItemDrawer`
+- [x] Snippets and commands use read-only `CodeEditor` presentation in `ItemDrawer`
   details.
-- [ ] Notes and prompts retain their existing `MarkdownEditor` behavior and do not
+- [x] Notes and prompts retain their existing `MarkdownEditor` behavior and do not
   load Monaco as their content editor.
-- [ ] The header contains red, yellow, and green macOS-style dots that are decorative
+- [x] The header contains red, yellow, and green macOS-style dots that are decorative
   to assistive technology.
-- [ ] The header presents a readable language label next to an accessible copy
+- [x] The header presents a readable language label next to an accessible copy
   button.
-- [ ] Copy writes the raw source and reports success or failure accessibly without
+- [x] Copy writes the raw source and reports success or failure accessibly without
   mutating content.
-- [ ] Read-only source remains selectable and copyable but cannot be edited.
-- [ ] The editor is responsive, remains at or below 400px high, and contains vertical
+- [x] Read-only source remains selectable and copyable but cannot be edited.
+- [x] The editor is responsive, remains at or below 400px high, and contains vertical
   and horizontal overflow on desktop and mobile drawer widths.
-- [ ] Monaco scrollbars and surrounding editor chrome match the established dark
+- [x] Monaco scrollbars and surrounding editor chrome match the established dark
   item-content styling.
-- [ ] Switching item types preserves current form validation and does not submit a
+- [x] Switching item types preserves current form validation and does not submit a
   language for non-snippet items.
-- [ ] Existing item CRUD, Markdown editor, and health behavior remain unchanged.
-- [ ] Frontend dependency, type, lint, format, unit, build, and relevant browser
+- [x] Existing item CRUD, Markdown editor, and health behavior remain unchanged.
+- [x] Frontend dependency, type, lint, format, unit, build, and relevant browser
   checks pass.
 
 ## Test Plan
@@ -127,17 +127,17 @@ Behavior:
   and keeps the dashboard route unchanged.
 - Verify the command fallback language and an unsupported or missing snippet
   language once the language-resolution decision is made.
-- [ ] `uv run pytest`
-- [ ] `uv run ruff check .`
-- [ ] `uv run ruff format --check .`
-- [ ] `uv run mypy`
-- [ ] `uv run alembic check`
-- [ ] `cd frontend && npm run typecheck`
-- [ ] `cd frontend && npm run lint`
-- [ ] `cd frontend && npm run format:check`
-- [ ] `cd frontend && npm run test`
-- [ ] `cd frontend && npm run build`
-- [ ] `cd frontend && npm run test:e2e`
+- [x] `uv run pytest`
+- [x] `uv run ruff check .`
+- [x] `uv run ruff format --check .`
+- [x] `uv run mypy`
+- [x] `uv run alembic check`
+- [x] `cd frontend && npm run typecheck`
+- [x] `cd frontend && npm run lint`
+- [x] `cd frontend && npm run format:check`
+- [x] `cd frontend && npm run test`
+- [x] `cd frontend && npm run build`
+- [x] `cd frontend && npm run test:e2e`
 
 ## Security and Privacy
 
@@ -177,4 +177,11 @@ Selected decisions:
 
 ## Completion Notes
 
-<!-- On completion, summarize the delivered behavior and verification results. -->
+Delivered Monaco-based controlled code editors for snippet and command creation,
+editing, and read-only presentation, with local Vite worker assets, dark editor
+chrome, resolved language labels, and accessible copy feedback. Notes and prompts
+continue to use the Markdown editor.
+
+Verified on 2026-08-27: 26 backend tests, Ruff, formatting, Mypy, and Alembic check;
+frontend type checking, linting, formatting, 27 Vitest tests, production build, and
+7 Playwright Chromium journeys all passed.
