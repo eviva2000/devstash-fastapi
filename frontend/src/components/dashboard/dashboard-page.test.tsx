@@ -13,6 +13,33 @@ const apiMocks = vi.hoisted(() => ({
   deleteItem: vi.fn(),
 }));
 
+vi.mock("@/components/items/lazy-code-editor", () => ({
+  LazyCodeEditor: ({
+    value,
+    language,
+    onChange,
+    label,
+    readOnly,
+  }: {
+    value: string;
+    language: { id: string; label: string };
+    onChange: (value: string) => void;
+    label: string;
+    readOnly: boolean;
+  }) => (
+    <div role="group" aria-label={`${label} code editor`}>
+      <span>{language.label}</span>
+      <textarea
+        aria-label={label}
+        data-language={language.id}
+        readOnly={readOnly}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  ),
+}));
+
 vi.mock("@/api/items", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/items")>();
   return {
@@ -215,6 +242,38 @@ test("renders and edits prompt Markdown inside the item drawer", async () => {
   );
 });
 
+test("renders commands with a Shell code editor in view and edit modes", async () => {
+  const command: Item = {
+    ...items[0],
+    title: "Build command",
+    content: "npm run build",
+    item_type: "command",
+    language: null,
+  };
+  apiMocks.fetchItems.mockResolvedValueOnce([command]);
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Open Build command" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Build command" });
+  let editor = within(dialog).getByRole("textbox", {
+    name: "Build command content",
+  });
+  expect(editor).toHaveAttribute("readonly");
+  expect(editor).toHaveAttribute("data-language", "shell");
+  expect(within(dialog).getByText("Shell")).toBeVisible();
+
+  await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+  editor = within(dialog).getByRole("textbox", { name: "Content" });
+  expect(editor).not.toHaveAttribute("readonly");
+  expect(editor).toHaveAttribute("data-language", "shell");
+  expect(
+    within(dialog).queryByLabelText("Language (optional)"),
+  ).not.toBeInTheDocument();
+});
+
 test("cancels drawer editing without changing the item", async () => {
   const user = userEvent.setup();
   renderDashboard();
@@ -254,8 +313,9 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   let dialog = screen.getByRole("dialog", { name: "useAuth Hook" });
   expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
   expect(
-    within(dialog).getByText(items[0].content, { selector: "pre" }),
-  ).toBeVisible();
+    within(dialog).getByRole("textbox", { name: "useAuth Hook content" }),
+  ).toHaveAttribute("readonly");
+  expect(within(dialog).getByText("TypeScript")).toBeVisible();
   await user.click(within(dialog).getByRole("button", { name: "Edit" }));
   expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
   const titleInput = within(dialog).getByLabelText("Title");

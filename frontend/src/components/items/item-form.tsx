@@ -1,7 +1,9 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import { itemTypes, type Item, type ItemInput } from "@/api/items";
+import { LazyCodeEditor } from "@/components/items/lazy-code-editor";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
+import { resolveCodeLanguage } from "@/lib/code-language";
 
 type ItemFormProps = {
   item?: Item;
@@ -31,6 +33,7 @@ export function ItemForm({
   const [requestError, setRequestError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const usesMarkdown = itemType === "note" || itemType === "prompt";
+  const usesCode = itemType === "snippet" || itemType === "command";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -115,7 +118,25 @@ export function ItemForm({
         </Field>
       )}
       <Field label="Content" htmlFor="item-content" error={fieldErrors.content}>
-        {usesMarkdown ? (
+        {usesCode ? (
+          <LazyCodeEditor
+            value={content}
+            language={resolveCodeLanguage(itemType, language)}
+            label="Content"
+            maxLength={50_000}
+            ariaInvalid={fieldErrors.content ? true : undefined}
+            ariaDescribedBy={
+              fieldErrors.content ? "item-content-error" : undefined
+            }
+            onChange={(value) => {
+              setContent(value);
+              setFieldErrors((current) => ({
+                ...current,
+                content: undefined,
+              }));
+            }}
+          />
+        ) : usesMarkdown ? (
           <MarkdownEditor
             id="item-content"
             label="Content"

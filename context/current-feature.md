@@ -1,39 +1,38 @@
-# Current Feature: Markdown Editor
+# Current Feature: Code Editor
 
 ## Status
 
-Completed
+In Progress
 
 ## Active Spec
 
-[Markdown Editor](features/markdown-editor.md)
+[Code Editor](features/code-editor.md)
 
 ## Goals
 
-- Create a reusable `MarkdownEditor` component with accessible Write and Preview
-  tabs.
-- Render GitHub Flavored Markdown using `react-markdown` and `remark-gfm`.
-- Use the Markdown editor for note and prompt content in item creation, editing, and
-  read-only drawer views.
-- Match the established dark item-content styling, including a copy control and a
-  fluid content area capped at 400px.
-- Give headings, code, lists, blockquotes, links, and tables reliable dark-theme
-  presentation through a dedicated `.markdown-preview` CSS class.
+- Create a reusable, controlled `CodeEditor` component powered by Monaco Editor.
+- Use `CodeEditor` for snippet and command content in create, edit, and read-only
+  item drawer views.
+- Support typed editable and read-only modes without changing stored item content.
+- Add a dark editor header with decorative macOS window dots, a language label, and
+  an accessible quick-copy control.
+- Keep the editor fluid and responsive up to 400px high, with themed scrollbars and
+  overflow contained inside the editor.
+- Preserve the existing Markdown editor behavior for notes and prompts.
 
 ## Notes
 
 - This is a frontend-only presentation feature; item API and database contracts do
   not change.
-- The actual creation surface is `ItemForm` inside create-mode `ItemDrawer`; no
-  separate `NewItemDialog` currently exists.
-- No `CodeEditor` currently exists. Snippet and command edit/view behavior must stay
-  unchanged rather than adding one under this feature.
-- Markdown applies only to notes and prompts, and raw HTML rendering remains
-  disabled.
-- The explicitly requested `react-markdown` and `remark-gfm` dependencies are
-  installed and locked for the frontend.
-- Successful copy will show temporary visible “Copied” feedback in an accessible
-  live region; failures will be reported without changing content.
+- Monaco applies only to snippet and command content. Notes and prompts retain the
+  completed Markdown editor flow.
+- Commands use the fixed header label `Shell` and Monaco's `shell` language mode.
+- Empty or unsupported snippet languages use the `Plain Text` label and Monaco's
+  `plaintext` mode.
+- Monaco is integrated through `@monaco-editor/react` with `monaco-editor`.
+- Monaco integration must work with Vite using locally bundled assets and no CDN.
+- Starting this feature authorizes its scoped dependency and application changes,
+  but not commits, merges, pushes, deployment, publication, or file deletion.
 - The linked spec is the source of truth; goals here are its working copy.
 - Allowed statuses are `Not Started`, `In Progress`, `Blocked`, and `Completed`.
 

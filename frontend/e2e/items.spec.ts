@@ -1,4 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+async function typeMonacoSource(page: Page, editor: Locator, source: string) {
+  await editor.locator(".monaco-editor").click();
+  await page.keyboard.insertText(source);
+}
 
 test("previews Markdown notes before saving and while reopening and editing", async ({
   page,
@@ -67,14 +72,20 @@ test("previews Markdown notes before saving and while reopening and editing", as
 });
 
 test("creates, reopens, edits, and deletes an item in the dashboard drawer", async ({
+  context,
   page,
   request,
 }) => {
   const title = `E2E snippet ${Date.now()}`;
   const updatedTitle = `${title} updated`;
+  const source = "export const answer: number = 42;";
+  const appendedSource = "\nexport const nextAnswer: number = 43;";
   let itemId: string | undefined;
 
   try {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], {
+      origin: "http://127.0.0.1:5173",
+    });
     await page.goto("/dashboard");
     const dashboardUrl = page.url();
     await page.getByRole("button", { name: "New item" }).click();
@@ -83,9 +94,12 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
     await createDrawer.getByLabel("Title").fill(title);
     await createDrawer.getByLabel("Type").selectOption("snippet");
     await createDrawer.getByLabel("Language (optional)").fill("typescript");
-    await createDrawer
-      .getByLabel("Content")
-      .fill("export const answer: number = 42;");
+    const createEditor = createDrawer.getByRole("group", {
+      name: "Content code editor",
+    });
+    await expect(createEditor.getByText("TypeScript")).toBeVisible();
+    await expect(createEditor.getByTestId("window-controls")).toBeVisible();
+    await typeMonacoSource(page, createEditor, source);
 
     const createResponsePromise = page.waitForResponse(
       (response) =>
@@ -99,6 +113,13 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
 
     const createdDrawer = page.getByRole("dialog", { name: title });
     await expect(createdDrawer).toBeVisible();
+    const readOnlyEditor = createdDrawer.getByRole("group", {
+      name: `${title} content code editor`,
+    });
+    await expect(readOnlyEditor.getByText("TypeScript")).toBeVisible();
+    await expect(readOnlyEditor).toHaveAttribute("aria-readonly", "true");
+    await readOnlyEditor.getByRole("button", { name: "Copy code" }).click();
+    await expect(readOnlyEditor.getByRole("status")).toHaveText("Copied");
     await expect(page).toHaveURL(dashboardUrl);
     await createdDrawer
       .getByRole("button", { name: "Close item drawer" })
@@ -108,13 +129,26 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
     const detailsDrawer = page.getByRole("dialog", { name: title });
     await detailsDrawer.getByRole("button", { name: "Edit" }).click();
     await detailsDrawer.getByLabel("Title").fill(updatedTitle);
+    await typeMonacoSource(
+      page,
+      detailsDrawer.getByRole("group", { name: "Content code editor" }),
+      appendedSource,
+    );
     const updateResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/items/${itemId}`) &&
         response.request().method() === "PATCH",
     );
     await detailsDrawer.getByRole("button", { name: "Save changes" }).click();
-    expect((await updateResponsePromise).status()).toBe(200);
+    const updateResponse = await updateResponsePromise;
+    expect(updateResponse.status()).toBe(200);
+    const updatedPayload = updateResponse.request().postDataJSON() as {
+      content: string;
+    };
+    expect(updatedPayload.content).toContain(source);
+    expect(updatedPayload.content).toContain(
+      "export const nextAnswer: number = 43;",
+    );
     await expect(
       page.getByRole("dialog", { name: updatedTitle }),
     ).toBeVisible();

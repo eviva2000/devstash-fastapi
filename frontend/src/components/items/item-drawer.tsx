@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { type Item, type ItemInput } from "@/api/items";
 import { ItemForm } from "@/components/items/item-form";
+import { LazyCodeEditor } from "@/components/items/lazy-code-editor";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
+import { resolveCodeLanguage } from "@/lib/code-language";
 
 type ItemDrawerProps = {
   mode: "create" | "view";
@@ -173,19 +175,18 @@ function ItemDetails({
           Delete
         </button>
       </div>
-      {item.language && (
-        <p className="text-muted-foreground mt-6 text-sm">
-          Language
-          <span className="bg-muted text-foreground ml-2 rounded px-2 py-1">
-            {item.language}
-          </span>
-        </p>
-      )}
       <h3 className="text-muted-foreground mt-8 text-sm font-medium">
         Content
       </h3>
       <div className="mt-3">
-        {item.item_type === "note" || item.item_type === "prompt" ? (
+        {item.item_type === "snippet" || item.item_type === "command" ? (
+          <LazyCodeEditor
+            value={item.content}
+            language={resolveCodeLanguage(item.item_type, item.language)}
+            label={`${item.title} content`}
+            readOnly
+          />
+        ) : item.item_type === "note" || item.item_type === "prompt" ? (
           <MarkdownEditor
             value={item.content}
             label={`${item.title} content`}
