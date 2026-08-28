@@ -12,6 +12,7 @@ class HealthResponse(BaseModel):
     """Response body returned by the health endpoint."""
 
     status: Literal["ok"]
+    service: Literal["devstash-api"]
 
 
 app = FastAPI(
@@ -25,4 +26,4 @@ app.include_router(items_router)
 async def health_check() -> HealthResponse:
     """Report that the API process is ready to receive requests."""
 
-    return HealthResponse(status="ok")
+    return HealthResponse(status="ok", service="devstash-api")
