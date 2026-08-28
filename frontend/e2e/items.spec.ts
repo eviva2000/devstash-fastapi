@@ -33,7 +33,9 @@ test("previews Markdown notes before saving and while reopening and editing", as
         response.url().endsWith("/api/items") &&
         response.request().method() === "POST",
     );
-    await createDrawer.getByRole("button", { name: "Create item" }).click();
+    await createDrawer
+      .getByRole("button", { name: "Create item", exact: true })
+      .click();
     const createResponse = await createResponsePromise;
     expect(createResponse.status()).toBe(201);
     itemId = ((await createResponse.json()) as { id: string }).id;
@@ -71,7 +73,7 @@ test("previews Markdown notes before saving and while reopening and editing", as
   }
 });
 
-test("creates, reopens, edits, and deletes an item in the dashboard drawer", async ({
+test("creates an item in a dialog, then reopens, edits, and deletes it in the drawer", async ({
   context,
   page,
   request,
@@ -90,11 +92,14 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
     const dashboardUrl = page.url();
     await page.getByRole("button", { name: "New item" }).click();
 
-    const createDrawer = page.getByRole("dialog", { name: "Create item" });
-    await createDrawer.getByLabel("Title").fill(title);
-    await createDrawer.getByLabel("Type").selectOption("snippet");
-    await createDrawer.getByLabel("Language (optional)").fill("typescript");
-    const createEditor = createDrawer.getByRole("group", {
+    const createDialog = page.getByRole("dialog", { name: "Create item" });
+    await createDialog.getByLabel("Title").fill(title);
+    await createDialog.getByLabel("Type").selectOption("snippet");
+    await createDialog
+      .getByRole("combobox", { name: "Language (optional)" })
+      .click();
+    await page.getByRole("option", { name: "TypeScript", exact: true }).click();
+    const createEditor = createDialog.getByRole("group", {
       name: "Content code editor",
     });
     await expect(createEditor.getByText("TypeScript")).toBeVisible();
@@ -106,7 +111,9 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
         response.url().endsWith("/api/items") &&
         response.request().method() === "POST",
     );
-    await createDrawer.getByRole("button", { name: "Create item" }).click();
+    await createDialog
+      .getByRole("button", { name: "Create item", exact: true })
+      .click();
     const createResponse = await createResponsePromise;
     expect(createResponse.status()).toBe(201);
     itemId = ((await createResponse.json()) as { id: string }).id;
@@ -154,7 +161,6 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
     ).toBeVisible();
     await expect(page).toHaveURL(dashboardUrl);
 
-    page.once("dialog", (dialog) => dialog.accept());
     const deleteResponsePromise = page.waitForResponse(
       (response) =>
         response.url().endsWith(`/api/items/${itemId}`) &&
@@ -164,6 +170,11 @@ test("creates, reopens, edits, and deletes an item in the dashboard drawer", asy
       .getByRole("dialog", { name: updatedTitle })
       .getByRole("button", { name: "Delete" })
       .click();
+    const deleteAlert = page.getByRole("alertdialog", {
+      name: `Delete “${updatedTitle}”?`,
+    });
+    await expect(deleteAlert).toBeVisible();
+    await deleteAlert.getByRole("button", { name: "Delete item" }).click();
     expect((await deleteResponsePromise).status()).toBe(204);
     itemId = undefined;
     await expect(page.getByRole("dialog")).toBeHidden();

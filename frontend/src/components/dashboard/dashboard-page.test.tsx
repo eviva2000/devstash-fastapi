@@ -137,7 +137,7 @@ test("shows loading, empty, and recoverable request-error states", async () => {
   ).toBeVisible();
 });
 
-test("creates an item with field validation and conditional language input", async () => {
+test("creates an item in a modal with a selectable snippet language", async () => {
   apiMocks.fetchItems.mockResolvedValueOnce([]);
   const created: Item = {
     ...items[0],
@@ -157,8 +157,24 @@ test("creates an item with field validation and conditional language input", asy
   await user.click(screen.getByRole("button", { name: "New item" }));
   const createDialog = screen.getByRole("dialog", { name: "Create item" });
   expect(
-    within(createDialog).getByLabelText("Language (optional)"),
+    within(createDialog).getByText("Add a snippet, prompt, command, or note."),
   ).toBeVisible();
+  expect(
+    within(createDialog).getByRole("combobox", {
+      name: "Language (optional)",
+    }),
+  ).toBeVisible();
+  await user.click(
+    within(createDialog).getByRole("combobox", {
+      name: "Language (optional)",
+    }),
+  );
+  await user.click(screen.getByRole("option", { name: "TypeScript" }));
+  expect(
+    within(createDialog).getByRole("combobox", {
+      name: "Language (optional)",
+    }),
+  ).toHaveTextContent("TypeScript");
   await user.click(
     within(createDialog).getByRole("button", { name: "Create item" }),
   );
@@ -168,7 +184,9 @@ test("creates an item with field validation and conditional language input", asy
   await user.type(within(createDialog).getByLabelText("Title"), created.title);
   await user.selectOptions(within(createDialog).getByLabelText("Type"), "note");
   expect(
-    within(createDialog).queryByLabelText("Language (optional)"),
+    within(createDialog).queryByRole("combobox", {
+      name: "Language (optional)",
+    }),
   ).not.toBeInTheDocument();
   await user.type(
     within(createDialog).getByLabelText("Content"),
@@ -206,7 +224,29 @@ test("creates an item with field validation and conditional language input", asy
       name: "Content",
     }),
   ).not.toBeInTheDocument();
+  expect(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Close item drawer",
+    }),
+  ).toHaveFocus();
   expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
+});
+
+test("returns focus to the New item button when the creation modal closes", async () => {
+  const user = userEvent.setup();
+  renderDashboard();
+
+  const newItemButton = screen.getByRole("button", { name: "New item" });
+  await user.click(newItemButton);
+  const createDialog = screen.getByRole("dialog", { name: "Create item" });
+  await user.click(
+    within(createDialog).getByRole("button", {
+      name: "Close create item dialog",
+    }),
+  );
+
+  expect(screen.queryByRole("dialog", { name: "Create item" })).toBeNull();
+  expect(newItemButton).toHaveFocus();
 });
 
 test("renders and edits prompt Markdown inside the item drawer", async () => {
@@ -298,11 +338,12 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   const updated = {
     ...items[0],
     title: "Updated authentication hook",
+    item_type: "prompt" as const,
+    language: null,
     updated_at: "2026-08-26T12:00:00Z",
   };
   apiMocks.updateItem.mockResolvedValueOnce(updated);
   apiMocks.deleteItem.mockResolvedValueOnce(undefined);
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   const user = userEvent.setup();
   renderDashboard();
 
@@ -321,6 +362,7 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   const titleInput = within(dialog).getByLabelText("Title");
   await user.clear(titleInput);
   await user.type(titleInput, updated.title);
+  await user.selectOptions(within(dialog).getByLabelText("Type"), "prompt");
   await user.click(
     within(dialog).getByRole("button", { name: "Save changes" }),
   );
@@ -329,12 +371,31 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   expect(apiMocks.updateItem).toHaveBeenCalledWith(items[0].id, {
     title: updated.title,
     content: items[0].content,
-    item_type: items[0].item_type,
-    language: items[0].language,
+    item_type: "prompt",
+    language: null,
   });
+  const updatedCard = screen
+    .getByRole("button", { name: `Open ${updated.title}`, hidden: true })
+    .closest<HTMLDivElement>("div.rounded-xl");
+  expect(updatedCard).toHaveClass("border-l-violet-500");
+  expect(within(updatedCard!).getByTestId("item-type-icon")).toHaveClass(
+    "text-violet-400",
+  );
   expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
 
   await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+  const deleteAlert = screen.getByRole("alertdialog", {
+    name: `Delete “${updated.title}”?`,
+  });
+  expect(apiMocks.deleteItem).not.toHaveBeenCalled();
+  expect(
+    within(deleteAlert).getByText(
+      "This action cannot be undone. The item will be permanently deleted.",
+    ),
+  ).toBeVisible();
+  await user.click(
+    within(deleteAlert).getByRole("button", { name: "Delete item" }),
+  );
   await waitFor(() =>
     expect(apiMocks.deleteItem).toHaveBeenCalledWith(items[0].id),
   );
@@ -349,7 +410,6 @@ test("keeps an item visible and reports a failed delete", async () => {
   apiMocks.deleteItem.mockRejectedValueOnce(
     new Error("Delete request failed."),
   );
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   const user = userEvent.setup();
   renderDashboard();
 
@@ -358,12 +418,39 @@ test("keeps an item visible and reports a failed delete", async () => {
   );
   const dialog = screen.getByRole("dialog", { name: "useAuth Hook" });
   await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+  const deleteAlert = screen.getByRole("alertdialog", {
+    name: "Delete “useAuth Hook”?",
+  });
+  await user.click(
+    within(deleteAlert).getByRole("button", { name: "Delete item" }),
+  );
 
   expect(await within(dialog).findByRole("alert")).toHaveTextContent(
     "Delete request failed.",
   );
   expect(dialog).toBeVisible();
   expect(screen.getByText("useAuth Hook", { selector: "h3" })).toBeVisible();
+});
+
+test("cancels deletion and restores focus to the drawer Delete button", async () => {
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Open useAuth Hook" }),
+  );
+  const drawer = screen.getByRole("dialog", { name: "useAuth Hook" });
+  const deleteButton = within(drawer).getByRole("button", { name: "Delete" });
+  await user.click(deleteButton);
+  const deleteAlert = screen.getByRole("alertdialog", {
+    name: "Delete “useAuth Hook”?",
+  });
+  await user.click(within(deleteAlert).getByRole("button", { name: "Cancel" }));
+
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  expect(deleteButton).toHaveFocus();
+  expect(apiMocks.deleteItem).not.toHaveBeenCalled();
+  expect(drawer).toBeVisible();
 });
 
 test("collapses and expands the desktop sidebar", async () => {

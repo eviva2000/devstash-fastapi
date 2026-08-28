@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { type Item, type ItemType } from "@/api/items";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemDrawer } from "@/components/items/item-drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { useItems, type ItemLoadState } from "@/hooks/use-items";
@@ -26,6 +27,31 @@ const itemIcons: Record<ItemType, typeof Braces> = {
   command: Terminal,
   note: FileText,
 };
+const itemTypeStyles: Record<
+  ItemType,
+  { border: string; iconBackground: string; icon: string }
+> = {
+  snippet: {
+    border: "border-l-blue-500",
+    iconBackground: "bg-blue-500/10",
+    icon: "text-blue-400",
+  },
+  prompt: {
+    border: "border-l-violet-500",
+    iconBackground: "bg-violet-500/10",
+    icon: "text-violet-400",
+  },
+  command: {
+    border: "border-l-orange-500",
+    iconBackground: "bg-orange-500/10",
+    icon: "text-orange-400",
+  },
+  note: {
+    border: "border-l-yellow-400",
+    iconBackground: "bg-yellow-400/10",
+    icon: "text-yellow-300",
+  },
+};
 const accentClasses = {
   blue: "border-l-blue-500",
   yellow: "border-l-yellow-400",
@@ -34,17 +60,20 @@ const accentClasses = {
   slate: "border-l-slate-500",
 };
 
-type ItemDrawerState = { mode: "create" } | { mode: "view"; itemId: string };
+type ItemDrawerState = { itemId: string };
 
 export function DashboardPage() {
   const [collapsed, setCollapsed] = useState(false);
   const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
+  const [createItemDialogOpen, setCreateItemDialogOpen] = useState(false);
   const [itemDrawer, setItemDrawer] = useState<ItemDrawerState | null>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const newItemButtonRef = useRef<HTMLButtonElement>(null);
   const navigationDrawerWasOpen = useRef(false);
   const itemDrawerWasOpen = useRef(false);
   const itemDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const createItemDialogWasOpen = useRef(false);
+  const createItemDialogTriggerRef = useRef<HTMLElement | null>(null);
   const {
     items,
     state: itemState,
@@ -62,6 +91,11 @@ export function DashboardPage() {
   const openItemDrawer = useCallback((state: ItemDrawerState) => {
     itemDrawerTriggerRef.current = document.activeElement as HTMLElement | null;
     setItemDrawer(state);
+  }, []);
+  const openCreateItemDialog = useCallback(() => {
+    createItemDialogTriggerRef.current =
+      document.activeElement as HTMLElement | null;
+    setCreateItemDialogOpen(true);
   }, []);
 
   useEffect(() => {
@@ -83,10 +117,20 @@ export function DashboardPage() {
     itemDrawerWasOpen.current = isOpen;
   }, [itemDrawer]);
 
-  const selectedItem =
-    itemDrawer?.mode === "view"
-      ? items.find((item) => item.id === itemDrawer.itemId)
-      : undefined;
+  useEffect(() => {
+    if (
+      createItemDialogWasOpen.current &&
+      !createItemDialogOpen &&
+      itemDrawer === null
+    ) {
+      createItemDialogTriggerRef.current?.focus();
+    }
+    createItemDialogWasOpen.current = createItemDialogOpen;
+  }, [createItemDialogOpen, itemDrawer]);
+
+  const selectedItem = itemDrawer
+    ? items.find((item) => item.id === itemDrawer.itemId)
+    : undefined;
   const stats = [
     { label: "Total items", value: itemState === "ready" ? items.length : "—" },
     { label: "Collections", value: collections.length },
@@ -132,7 +176,7 @@ export function DashboardPage() {
           navigationButtonRef={navigationButtonRef}
           newItemButtonRef={newItemButtonRef}
           onOpenNavigation={() => setNavigationDrawerOpen(true)}
-          onNewItem={() => openItemDrawer({ mode: "create" })}
+          onNewItem={openCreateItemDialog}
         />
         <div className="mx-auto max-w-[104rem] p-4 sm:p-6 lg:p-8">
           <header>
@@ -184,34 +228,27 @@ export function DashboardPage() {
             state={itemState}
             error={itemError}
             onRetry={() => void retry()}
-            onCreate={() => openItemDrawer({ mode: "create" })}
-            onSelect={(item) =>
-              openItemDrawer({ mode: "view", itemId: item.id })
-            }
+            onCreate={openCreateItemDialog}
+            onSelect={(item) => openItemDrawer({ itemId: item.id })}
           />
         </div>
       </section>
-      {itemDrawer?.mode === "create" && (
-        <ItemDrawer
-          key="create-item"
-          mode="create"
-          onClose={closeItemDrawer}
-          onCreate={create}
-          onUpdate={update}
-          onDelete={remove}
-          onCreated={(item) => setItemDrawer({ mode: "view", itemId: item.id })}
-        />
-      )}
-      {itemDrawer?.mode === "view" && selectedItem && (
+      <ItemCreateDialog
+        open={createItemDialogOpen}
+        onOpenChange={setCreateItemDialogOpen}
+        onCreate={create}
+        onCreated={(item) => {
+          setCreateItemDialogOpen(false);
+          setItemDrawer({ itemId: item.id });
+        }}
+      />
+      {selectedItem && (
         <ItemDrawer
           key={selectedItem.id}
-          mode="view"
           item={selectedItem}
           onClose={closeItemDrawer}
-          onCreate={create}
           onUpdate={update}
           onDelete={remove}
-          onCreated={(item) => setItemDrawer({ mode: "view", itemId: item.id })}
         />
       )}
     </main>
@@ -399,8 +436,9 @@ function ItemCard({
   onSelect: (item: Item) => void;
 }) {
   const Icon = itemIcons[item.item_type];
+  const style = itemTypeStyles[item.item_type];
   return (
-    <Card className="bg-card/35 border-l-primary h-full border-l-[3px]">
+    <Card className={cn("bg-card/35 h-full border-l-[3px]", style.border)}>
       <button
         type="button"
         aria-label={`Open ${item.title}`}
@@ -409,8 +447,17 @@ function ItemCard({
       >
         <CardContent className="flex h-full min-h-48 flex-col p-5">
           <div className="flex items-start justify-between gap-3">
-            <span className="bg-primary/10 grid size-11 shrink-0 place-items-center rounded-lg">
-              <Icon aria-hidden="true" className="text-primary size-5" />
+            <span
+              className={cn(
+                "grid size-11 shrink-0 place-items-center rounded-lg",
+                style.iconBackground,
+              )}
+            >
+              <Icon
+                aria-hidden="true"
+                data-testid="item-type-icon"
+                className={cn("size-5", style.icon)}
+              />
             </span>
             <time className="text-muted-foreground text-xs">
               {formatRecentDate(item.updated_at)}

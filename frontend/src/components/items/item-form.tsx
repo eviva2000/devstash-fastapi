@@ -3,7 +3,14 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { itemTypes, type Item, type ItemInput } from "@/api/items";
 import { LazyCodeEditor } from "@/components/items/lazy-code-editor";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
-import { resolveCodeLanguage } from "@/lib/code-language";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { resolveCodeLanguage, snippetLanguages } from "@/lib/code-language";
 
 type ItemFormProps = {
   item?: Item;
@@ -107,15 +114,23 @@ export function ItemForm({
         </select>
       </Field>
       {itemType === "snippet" && (
-        <Field label="Language (optional)" htmlFor="item-language">
-          <input
-            id="item-language"
-            value={language}
-            maxLength={64}
-            onChange={(event) => setLanguage(event.target.value)}
-            className={inputClasses}
-          />
-        </Field>
+        <div>
+          <p id="item-language-label" className="mb-2 text-sm font-medium">
+            Language (optional)
+          </p>
+          <Select value={language} onValueChange={setLanguage}>
+            <SelectTrigger aria-labelledby="item-language-label">
+              <SelectValue placeholder="Select a language" />
+            </SelectTrigger>
+            <SelectContent>
+              {snippetLanguages.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
       <Field label="Content" htmlFor="item-content" error={fieldErrors.content}>
         {usesCode ? (

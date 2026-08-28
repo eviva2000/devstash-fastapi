@@ -88,7 +88,7 @@ npm install
 npx playwright install chromium
 ```
 
-## Development
+## Run the backend
 
 Ensure PostgreSQL is running and current before starting FastAPI:
 
@@ -102,6 +102,10 @@ Then start FastAPI from the repository root:
 ```bash
 uv run uvicorn devstash.main:app --app-dir src --reload
 ```
+
+The backend is now available at <http://127.0.0.1:8000>. Use `Ctrl+C` to stop it.
+
+## Frontend development
 
 In another terminal, start Vite:
 

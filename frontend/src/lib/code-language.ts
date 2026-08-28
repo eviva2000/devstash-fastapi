@@ -5,6 +5,41 @@ export type CodeLanguage = {
   label: string;
 };
 
+export type SnippetLanguage = {
+  value: string;
+  label: string;
+};
+
+export const snippetLanguages: readonly SnippetLanguage[] = [
+  { value: "plaintext", label: "Plain Text" },
+  { value: "shell", label: "Bash / Shell" },
+  { value: "c", label: "C" },
+  { value: "cpp", label: "C++" },
+  { value: "csharp", label: "C#" },
+  { value: "css", label: "CSS" },
+  { value: "dockerfile", label: "Dockerfile" },
+  { value: "go", label: "Go" },
+  { value: "html", label: "HTML" },
+  { value: "java", label: "Java" },
+  { value: "javascript", label: "JavaScript" },
+  { value: "json", label: "JSON" },
+  { value: "kotlin", label: "Kotlin" },
+  { value: "less", label: "Less" },
+  { value: "markdown", label: "Markdown" },
+  { value: "php", label: "PHP" },
+  { value: "powershell", label: "PowerShell" },
+  { value: "python", label: "Python" },
+  { value: "ruby", label: "Ruby" },
+  { value: "rust", label: "Rust" },
+  { value: "scss", label: "SCSS" },
+  { value: "sql", label: "SQL" },
+  { value: "swift", label: "Swift" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "tsx", label: "TypeScript JSX" },
+  { value: "xml", label: "XML" },
+  { value: "yaml", label: "YAML" },
+];
+
 const plainText: CodeLanguage = { id: "plaintext", label: "Plain Text" };
 const shell: CodeLanguage = { id: "shell", label: "Shell" };
 
@@ -39,6 +74,7 @@ const languages = new Map<string, CodeLanguage>([
   ["ruby", { id: "ruby", label: "Ruby" }],
   ["rust", { id: "rust", label: "Rust" }],
   ["scss", { id: "scss", label: "SCSS" }],
+  ["shell", shell],
   ["sql", { id: "sql", label: "SQL" }],
   ["swift", { id: "swift", label: "Swift" }],
   ["text", plainText],

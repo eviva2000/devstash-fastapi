@@ -5,24 +5,31 @@ import { type Item, type ItemInput } from "@/api/items";
 import { ItemForm } from "@/components/items/item-form";
 import { LazyCodeEditor } from "@/components/items/lazy-code-editor";
 import { MarkdownEditor } from "@/components/items/markdown-editor";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { resolveCodeLanguage } from "@/lib/code-language";
 
 type ItemDrawerProps = {
-  mode: "create" | "view";
-  item?: Item;
+  item: Item;
   onClose: () => void;
-  onCreate: (input: ItemInput) => Promise<Item>;
   onUpdate: (id: string, input: ItemInput) => Promise<Item>;
   onDelete: (id: string) => Promise<void>;
-  onCreated: (item: Item) => void;
 };
 
 export function ItemDrawer(props: ItemDrawerProps) {
-  const { mode, item, onClose, onCreate, onUpdate, onDelete, onCreated } =
-    props;
+  const { item, onClose, onUpdate, onDelete } = props;
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const [editing, setEditing] = useState(mode === "create");
+  const [editing, setEditing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -55,11 +62,6 @@ export function ItemDrawer(props: ItemDrawerProps) {
   }, [onClose]);
 
   async function remove() {
-    if (
-      !item ||
-      !window.confirm(`Delete “${item.title}”? This cannot be undone.`)
-    )
-      return;
     setActionError(null);
     try {
       await onDelete(item.id);
@@ -91,13 +93,13 @@ export function ItemDrawer(props: ItemDrawerProps) {
         <header className="border-border flex items-start gap-4 border-b p-5">
           <div className="min-w-0 flex-1">
             <p className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-              {mode === "create" ? "New item" : item?.item_type}
+              {item.item_type}
             </p>
             <h2
               id="item-drawer-title"
               className="mt-1 truncate text-xl font-semibold"
             >
-              {mode === "create" ? "Create item" : item?.title}
+              {item.title}
             </h2>
           </div>
           <button
@@ -121,25 +123,21 @@ export function ItemDrawer(props: ItemDrawerProps) {
           )}
           {editing ? (
             <ItemForm
-              item={mode === "view" ? item : undefined}
-              submitLabel={mode === "create" ? "Create item" : "Save changes"}
-              onCancel={mode === "create" ? onClose : () => setEditing(false)}
+              item={item}
+              submitLabel="Save changes"
+              onCancel={() => setEditing(false)}
               onSubmit={async (input) => {
-                if (mode === "create") {
-                  onCreated(await onCreate(input));
-                } else if (item) {
-                  await onUpdate(item.id, input);
-                  setEditing(false);
-                }
+                await onUpdate(item.id, input);
+                setEditing(false);
               }}
             />
-          ) : item ? (
+          ) : (
             <ItemDetails
               item={item}
               onEdit={() => setEditing(true)}
               onDelete={() => void remove()}
             />
-          ) : null}
+          )}
         </div>
       </aside>
     </div>
@@ -166,14 +164,32 @@ function ItemDetails({
           <Pencil aria-hidden="true" className="size-4" />
           Edit
         </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="flex items-center gap-2 rounded-lg border border-red-500/40 px-3 py-2 text-red-300 hover:bg-red-500/10"
-        >
-          <Trash2 aria-hidden="true" className="size-4" />
-          Delete
-        </button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg border border-red-500/40 px-3 py-2 text-red-300 hover:bg-red-500/10"
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+              Delete
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete “{item.title}”?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. The item will be permanently
+                deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onDelete}>
+                Delete item
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       <h3 className="text-muted-foreground mt-8 text-sm font-medium">
         Content
