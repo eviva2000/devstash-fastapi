@@ -20,6 +20,21 @@ export type ItemInput = {
 
 export type ItemUpdate = Partial<ItemInput>;
 
+export type ItemQuery = {
+  q?: string;
+  itemType?: ItemType;
+  language?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type ItemPage = {
+  items: Item[];
+  page: number;
+  page_size: number;
+  total: number;
+};
+
 export class ItemApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -42,6 +57,18 @@ function isItem(value: unknown): value is Item {
     (typeof item.language === "string" || item.language === null) &&
     typeof item.created_at === "string" &&
     typeof item.updated_at === "string"
+  );
+}
+
+function isItemPage(value: unknown): value is ItemPage {
+  if (typeof value !== "object" || value === null) return false;
+  const page = value as Record<string, unknown>;
+  return (
+    Array.isArray(page.items) &&
+    page.items.every(isItem) &&
+    typeof page.page === "number" &&
+    typeof page.page_size === "number" &&
+    typeof page.total === "number"
   );
 }
 
@@ -75,10 +102,20 @@ async function readItem(response: Response): Promise<Item> {
   return value;
 }
 
-export async function fetchItems(signal?: AbortSignal): Promise<Item[]> {
-  const response = await request("", { signal });
+export async function fetchItems(
+  query: ItemQuery = {},
+  signal?: AbortSignal,
+): Promise<ItemPage> {
+  const params = new URLSearchParams();
+  if (query.q) params.set("q", query.q);
+  if (query.itemType) params.set("item_type", query.itemType);
+  if (query.language) params.set("language", query.language);
+  if (query.page && query.page > 1) params.set("page", String(query.page));
+  if (query.pageSize) params.set("page_size", String(query.pageSize));
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  const response = await request(suffix, { signal });
   const value: unknown = await response.json();
-  if (!Array.isArray(value) || !value.every(isItem)) {
+  if (!isItemPage(value)) {
     throw new ItemApiError("The item service returned invalid data.");
   }
   return value;

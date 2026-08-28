@@ -94,7 +94,11 @@ def test_item_crud_and_recent_first_listing(item_client: TestClient) -> None:
 
     listed = item_client.get("/api/items")
     assert listed.status_code == 200
-    assert [item["id"] for item in listed.json()] == [first["id"], second["id"]]
+    assert [item["id"] for item in listed.json()["items"]] == [
+        first["id"],
+        second["id"],
+    ]
+    assert listed.json()["total"] == 2
 
     fetched = item_client.get(f"/api/items/{first['id']}")
     assert fetched.status_code == 200
@@ -155,4 +159,63 @@ def test_empty_database_returns_empty_list(item_client: TestClient) -> None:
     response = item_client.get("/api/items")
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"items": [], "page": 1, "page_size": 12, "total": 0}
+
+
+def test_list_searches_filters_and_paginates_items(item_client: TestClient) -> None:
+    auth = item_client.post(
+        "/api/items",
+        json={
+            **_item_payload(),
+            "title": "Auth hook",
+            "content": "Reusable React authentication helper",
+            "language": "typescript",
+        },
+    ).json()
+    note = item_client.post(
+        "/api/items",
+        json={
+            **_item_payload("note"),
+            "title": "Release checklist",
+            "content": "Deploy the API safely",
+        },
+    ).json()
+    item_client.post(
+        "/api/items",
+        json={
+            **_item_payload(),
+            "title": "Python helper",
+            "content": "Reusable utility",
+            "language": "python",
+        },
+    )
+
+    searched = item_client.get("/api/items", params={"q": "authentication"})
+    assert searched.status_code == 200
+    assert [entry["id"] for entry in searched.json()["items"]] == [auth["id"]]
+    assert searched.json()["total"] == 1
+
+    filtered = item_client.get(
+        "/api/items",
+        params={
+            "q": "utility",
+            "item_type": "snippet",
+            "language": "python",
+        },
+    )
+    assert filtered.status_code == 200
+    assert [entry["title"] for entry in filtered.json()["items"]] == ["Python helper"]
+
+    paged = item_client.get("/api/items", params={"page": 2, "page_size": 1})
+    assert paged.status_code == 200
+    assert paged.json()["page"] == 2
+    assert paged.json()["page_size"] == 1
+    assert paged.json()["total"] == 3
+    assert paged.json()["items"][0]["id"] == note["id"]
+
+
+@pytest.mark.parametrize("params", [{"page": 0}, {"page_size": 51}])
+def test_list_rejects_invalid_pagination(
+    item_client: TestClient, params: dict[str, int]
+) -> None:
+    assert item_client.get("/api/items", params=params).status_code == 422

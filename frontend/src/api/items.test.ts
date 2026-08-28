@@ -32,10 +32,17 @@ afterEach(() => vi.unstubAllGlobals());
 
 test("loads the item list and an individual item from canonical API routes", async () => {
   fetchMock
-    .mockResolvedValueOnce(jsonResponse([item]))
+    .mockResolvedValueOnce(
+      jsonResponse({ items: [item], page: 1, page_size: 12, total: 1 }),
+    )
     .mockResolvedValueOnce(jsonResponse(item));
 
-  await expect(fetchItems()).resolves.toEqual([item]);
+  await expect(fetchItems()).resolves.toEqual({
+    items: [item],
+    page: 1,
+    page_size: 12,
+    total: 1,
+  });
   await expect(fetchItem(item.id)).resolves.toEqual(item);
   expect(fetchMock).toHaveBeenNthCalledWith(
     1,
@@ -50,6 +57,25 @@ test("loads the item list and an individual item from canonical API routes", asy
     expect.objectContaining({
       headers: { Accept: "application/json" },
     }),
+  );
+});
+
+test("serializes search, filters, and pagination into the list URL", async () => {
+  fetchMock.mockResolvedValueOnce(
+    jsonResponse({ items: [item], page: 2, page_size: 6, total: 7 }),
+  );
+
+  await fetchItems({
+    q: "restart services",
+    itemType: "command",
+    language: "shell",
+    page: 2,
+    pageSize: 6,
+  });
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/items?q=restart+services&item_type=command&language=shell&page=2&page_size=6",
+    expect.objectContaining({ headers: { Accept: "application/json" } }),
   );
 });
 
@@ -104,7 +130,14 @@ test("deletes an item without reading a response body", async () => {
 test("rejects failed requests and malformed service responses", async () => {
   fetchMock
     .mockResolvedValueOnce(jsonResponse({ detail: "missing" }, 404))
-    .mockResolvedValueOnce(jsonResponse([{ ...item, item_type: "file" }]));
+    .mockResolvedValueOnce(
+      jsonResponse({
+        items: [{ ...item, item_type: "file" }],
+        page: 1,
+        page_size: 12,
+        total: 1,
+      }),
+    );
 
   await expect(fetchItem(item.id)).rejects.toEqual(
     new ItemApiError("The item request could not be completed."),

@@ -3,7 +3,8 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, Index, String, Text, func
+from sqlalchemy import CheckConstraint, Computed, DateTime, Index, String, Text, func
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +41,15 @@ class Item(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    search_vector: Mapped[object] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('english', coalesce(title, '') || ' ' "
+            "|| coalesce(content, ''))",
+            persisted=True,
+        ),
+    )
 
 
 Index("ix_items_updated_at_id", Item.updated_at.desc(), Item.id.desc())
+Index("ix_items_search_vector", Item.search_vector, postgresql_using="gin")

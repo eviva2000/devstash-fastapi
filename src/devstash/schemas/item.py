@@ -115,3 +115,12 @@ class ItemResponse(BaseModel):
     language: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class ItemListResponse(BaseModel):
+    """A page of items and the metadata needed to navigate it."""
+
+    items: list[ItemResponse]
+    page: int
+    page_size: int
+    total: int

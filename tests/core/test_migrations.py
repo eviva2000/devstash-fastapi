@@ -14,7 +14,7 @@ from sqlalchemy.engine import make_url
 from devstash.core.config import get_settings
 from devstash.core.database import Base
 
-MIGRATION_HEAD = "20260826_0002"
+MIGRATION_HEAD = "20260828_0003"
 
 
 def _alembic_config() -> Config:
@@ -100,6 +100,7 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
             "pk_items",
         } <= _item_constraint_names(database_url)
         assert "ix_items_updated_at_id" in _item_index_names(database_url)
+        assert "ix_items_search_vector" in _item_index_names(database_url)
 
         command.downgrade(config, "base")
         assert _current_revision(database_url) is None

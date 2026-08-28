@@ -64,27 +64,37 @@ const items: Item[] = Array.from({ length: 7 }, (_, index) => ({
   updated_at: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
 }));
 
+function itemPage(entries: Item[]) {
+  return { items: entries, page: 1, page_size: 12, total: entries.length };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
-  apiMocks.fetchItems.mockResolvedValue(items);
+  apiMocks.fetchItems.mockResolvedValue(itemPage(items));
 });
 
 afterEach(() => vi.restoreAllMocks());
 
 function LocationProbe() {
-  return <span data-testid="location">{useLocation().pathname}</span>;
+  const location = useLocation();
+  return (
+    <>
+      <span data-testid="location">{location.pathname}</span>
+      <span data-testid="search-params">{location.search}</span>
+    </>
+  );
 }
 
-function renderDashboard() {
+function renderDashboard(initialEntry = "/dashboard") {
   return render(
-    <MemoryRouter initialEntries={["/dashboard"]}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <DashboardPage />
       <LocationProbe />
     </MemoryRouter>,
   );
 }
 
-test("renders dashboard overview and at most six persisted items", async () => {
+test("renders dashboard overview and its server-provided item page", async () => {
   renderDashboard();
   expect(screen.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   expect(screen.getByText("Total items")).toBeVisible();
@@ -100,24 +110,24 @@ test("renders dashboard overview and at most six persisted items", async () => {
   await waitFor(() =>
     expect(
       within(recentSection!).getAllByRole("heading", { level: 3 }),
-    ).toHaveLength(6),
+    ).toHaveLength(7),
   );
-  expect(screen.queryByText("Saved item 7")).not.toBeInTheDocument();
+  expect(screen.getByText("Saved item 7")).toBeVisible();
   expect(
     screen.queryByRole("heading", { name: "Pinned" }),
   ).not.toBeInTheDocument();
 });
 
 test("shows loading, empty, and recoverable request-error states", async () => {
-  let resolveItems: ((value: Item[]) => void) | undefined;
+  let resolveItems: ((value: ReturnType<typeof itemPage>) => void) | undefined;
   apiMocks.fetchItems.mockReturnValueOnce(
-    new Promise<Item[]>((resolve) => {
+    new Promise<ReturnType<typeof itemPage>>((resolve) => {
       resolveItems = resolve;
     }),
   );
   const loadingView = renderDashboard();
   expect(screen.getByText("Loading items…")).toBeVisible();
-  resolveItems?.([]);
+  resolveItems?.(itemPage([]));
   expect(
     await screen.findByRole("heading", { name: "No items yet" }),
   ).toBeVisible();
@@ -125,7 +135,7 @@ test("shows loading, empty, and recoverable request-error states", async () => {
 
   apiMocks.fetchItems
     .mockRejectedValueOnce(new Error("Items are temporarily unavailable."))
-    .mockResolvedValueOnce(items);
+    .mockResolvedValueOnce(itemPage(items));
   const user = userEvent.setup();
   renderDashboard();
   expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -137,8 +147,52 @@ test("shows loading, empty, and recoverable request-error states", async () => {
   ).toBeVisible();
 });
 
+test("restores shareable search and filter state from the URL", async () => {
+  apiMocks.fetchItems.mockResolvedValueOnce(itemPage([items[0]]));
+
+  renderDashboard(
+    "/dashboard?q=authentication&type=snippet&language=typescript&page=2",
+  );
+
+  expect(screen.getByRole("textbox", { name: "Search items" })).toHaveValue(
+    "authentication",
+  );
+  expect(screen.getByRole("combobox", { name: "Filter by type" })).toHaveValue(
+    "snippet",
+  );
+  expect(
+    screen.getByRole("combobox", { name: "Filter by language" }),
+  ).toHaveValue("typescript");
+  await waitFor(() =>
+    expect(apiMocks.fetchItems).toHaveBeenCalledWith(
+      {
+        q: "authentication",
+        itemType: "snippet",
+        language: "typescript",
+        page: 2,
+        pageSize: 12,
+      },
+      expect.any(AbortSignal),
+    ),
+  );
+});
+
+test("shows a distinct no-results state and clears URL filters", async () => {
+  apiMocks.fetchItems.mockResolvedValue(itemPage([]));
+  const user = userEvent.setup();
+  renderDashboard("/dashboard?q=missing&type=note");
+
+  expect(
+    await screen.findByRole("heading", { name: "No matching items" }),
+  ).toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+  expect(screen.getByTestId("search-params")).toHaveTextContent("");
+  expect(screen.getByRole("textbox", { name: "Search items" })).toHaveValue("");
+});
+
 test("creates an item in a modal with a selectable snippet language", async () => {
-  apiMocks.fetchItems.mockResolvedValueOnce([]);
+  apiMocks.fetchItems.mockResolvedValueOnce(itemPage([]));
   const created: Item = {
     ...items[0],
     id: "10000000-0000-4000-8000-000000000000",
@@ -256,7 +310,7 @@ test("renders and edits prompt Markdown inside the item drawer", async () => {
     content: "# Review checklist\n\n- Check types",
     item_type: "prompt",
   };
-  apiMocks.fetchItems.mockResolvedValueOnce([prompt]);
+  apiMocks.fetchItems.mockResolvedValueOnce(itemPage([prompt]));
   const user = userEvent.setup();
   renderDashboard();
 
@@ -290,7 +344,7 @@ test("renders commands with a Shell code editor in view and edit modes", async (
     item_type: "command",
     language: null,
   };
-  apiMocks.fetchItems.mockResolvedValueOnce([command]);
+  apiMocks.fetchItems.mockResolvedValueOnce(itemPage([command]));
   const user = userEvent.setup();
   renderDashboard();
 

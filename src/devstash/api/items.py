@@ -3,11 +3,17 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from devstash.core.database import get_session
-from devstash.schemas.item import ItemCreate, ItemResponse, ItemUpdate
+from devstash.schemas.item import (
+    ItemCreate,
+    ItemListResponse,
+    ItemResponse,
+    ItemType,
+    ItemUpdate,
+)
 from devstash.services.item import InvalidItem, ItemNotFound, ItemService
 
 router = APIRouter(prefix="/api/items", tags=["items"])
@@ -45,12 +51,31 @@ async def create_item(
     return ItemResponse.model_validate(item)
 
 
-@router.get("", response_model=list[ItemResponse])
-async def list_items(session: SessionDependency) -> list[ItemResponse]:
-    """Return all items in deterministic recent-first order."""
+@router.get("", response_model=ItemListResponse)
+async def list_items(
+    session: SessionDependency,
+    q: str | None = Query(default=None, max_length=200),
+    item_type: ItemType | None = None,
+    language: str | None = Query(default=None, max_length=64),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=12, ge=1, le=50),
+) -> ItemListResponse:
+    """Return a filtered, deterministic page of items."""
 
-    items = await ItemService(session).list_items()
-    return [ItemResponse.model_validate(item) for item in items]
+    query = q.strip() if q is not None else None
+    items, total = await ItemService(session).list_items(
+        query=query or None,
+        item_type=item_type,
+        language=language.strip() or None if language is not None else None,
+        page=page,
+        page_size=page_size,
+    )
+    return ItemListResponse(
+        items=[ItemResponse.model_validate(item) for item in items],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 @router.get("/{item_id}", response_model=ItemResponse)

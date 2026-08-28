@@ -25,8 +25,22 @@ class ItemService:
         self._session = session
         self._repository = ItemRepository(session)
 
-    async def list_items(self) -> list[Item]:
-        return await self._repository.list()
+    async def list_items(
+        self,
+        *,
+        query: str | None,
+        item_type: ItemType | None,
+        language: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Item], int]:
+        return await self._repository.list(
+            query=query,
+            item_type=item_type,
+            language=language,
+            page=page,
+            page_size=page_size,
+        )
 
     async def get_item(self, item_id: UUID) -> Item:
         item = await self._repository.get(item_id)

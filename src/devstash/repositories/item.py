@@ -2,10 +2,12 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from devstash.models.item import Item
+from devstash.schemas.item import ItemType
 
 
 class ItemRepository:
@@ -14,10 +16,38 @@ class ItemRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def list(self) -> list[Item]:
-        statement = select(Item).order_by(Item.updated_at.desc(), Item.id.desc())
+    async def list(
+        self,
+        *,
+        query: str | None,
+        item_type: ItemType | None,
+        language: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Item], int]:
+        filters: list[ColumnElement[bool]] = []
+        if query is not None:
+            filters.append(
+                Item.search_vector.op("@@")(func.websearch_to_tsquery("english", query))
+            )
+        if item_type is not None:
+            filters.append(Item.item_type == item_type)
+        if language is not None:
+            filters.append(Item.language == language)
+
+        count_statement = select(func.count()).select_from(Item)
+        statement = select(Item)
+        if filters:
+            count_statement = count_statement.where(*filters)
+            statement = statement.where(*filters)
+        total = await self._session.scalar(count_statement)
+        statement = (
+            statement.order_by(Item.updated_at.desc(), Item.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         result = await self._session.scalars(statement)
-        return list(result.all())
+        return list(result.all()), total or 0
 
     async def get(self, item_id: UUID) -> Item | None:
         return await self._session.get(Item, item_id)

@@ -11,14 +11,16 @@ import {
 } from "lucide-react";
 import type { RefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import { type Item, type ItemType } from "@/api/items";
+import { itemTypes, type Item, type ItemType } from "@/api/items";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemDrawer } from "@/components/items/item-drawer";
 import { Card, CardContent } from "@/components/ui/card";
 import { useItems, type ItemLoadState } from "@/hooks/use-items";
 import { collections, type Collection } from "@/lib/mock-data";
+import { snippetLanguages } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
 
 const itemIcons: Record<ItemType, typeof Braces> = {
@@ -62,7 +64,17 @@ const accentClasses = {
 
 type ItemDrawerState = { itemId: string };
 
+function readItemType(value: string | null): ItemType | undefined {
+  return itemTypes.find((itemType) => itemType === value);
+}
+
+function readPage(value: string | null): number {
+  const page = Number(value ?? "1");
+  return Number.isInteger(page) && page >= 1 ? page : 1;
+}
+
 export function DashboardPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
   const [createItemDialogOpen, setCreateItemDialogOpen] = useState(false);
@@ -74,15 +86,35 @@ export function DashboardPage() {
   const itemDrawerTriggerRef = useRef<HTMLElement | null>(null);
   const createItemDialogWasOpen = useRef(false);
   const createItemDialogTriggerRef = useRef<HTMLElement | null>(null);
+  const query = {
+    q: searchParams.get("q") ?? undefined,
+    itemType: readItemType(searchParams.get("type")),
+    language: searchParams.get("language") ?? undefined,
+    page: readPage(searchParams.get("page")),
+    pageSize: 12,
+  };
   const {
     items,
+    total,
     state: itemState,
     error: itemError,
     retry,
     create,
     update,
     remove,
-  } = useItems();
+  } = useItems(query);
+  const updateSearch = useCallback(
+    (changes: Record<string, string | undefined>) => {
+      const next = new URLSearchParams(searchParams);
+      for (const [key, value] of Object.entries(changes)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      if (!("page" in changes)) next.delete("page");
+      setSearchParams(next);
+    },
+    [searchParams, setSearchParams],
+  );
   const closeNavigationDrawer = useCallback(
     () => setNavigationDrawerOpen(false),
     [],
@@ -132,7 +164,7 @@ export function DashboardPage() {
     ? items.find((item) => item.id === itemDrawer.itemId)
     : undefined;
   const stats = [
-    { label: "Total items", value: itemState === "ready" ? items.length : "—" },
+    { label: "Total items", value: itemState === "ready" ? total : "—" },
     { label: "Collections", value: collections.length },
     { label: "Favorite items", value: 0 },
     {
@@ -177,6 +209,8 @@ export function DashboardPage() {
           newItemButtonRef={newItemButtonRef}
           onOpenNavigation={() => setNavigationDrawerOpen(true)}
           onNewItem={openCreateItemDialog}
+          query={query.q ?? ""}
+          onQueryChange={(q) => updateSearch({ q })}
         />
         <div className="mx-auto max-w-[104rem] p-4 sm:p-6 lg:p-8">
           <header>
@@ -204,6 +238,47 @@ export function DashboardPage() {
               ))}
             </div>
           </section>
+          <section
+            className="mt-6 flex flex-wrap gap-3"
+            aria-label="Item filters"
+          >
+            <label className="text-muted-foreground flex items-center gap-2 text-sm">
+              Type
+              <select
+                aria-label="Filter by type"
+                value={query.itemType ?? ""}
+                onChange={(event) =>
+                  updateSearch({ type: event.target.value || undefined })
+                }
+                className="border-border bg-card text-foreground rounded-lg border px-3 py-2"
+              >
+                <option value="">All types</option>
+                {itemTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type[0].toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-muted-foreground flex items-center gap-2 text-sm">
+              Language
+              <select
+                aria-label="Filter by language"
+                value={query.language ?? ""}
+                onChange={(event) =>
+                  updateSearch({ language: event.target.value || undefined })
+                }
+                className="border-border bg-card text-foreground rounded-lg border px-3 py-2"
+              >
+                <option value="">All languages</option>
+                {snippetLanguages.map((language) => (
+                  <option key={language.value} value={language.value}>
+                    {language.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
           <section className="mt-10" aria-labelledby="collections-heading">
             <div className="flex items-end justify-between">
               <h2 id="collections-heading" className="text-xl font-semibold">
@@ -223,13 +298,23 @@ export function DashboardPage() {
             </div>
           </section>
           <ItemSection
-            title="Recent items"
-            items={items.slice(0, 6)}
+            title={
+              query.q || query.itemType || query.language
+                ? "Results"
+                : "Recent items"
+            }
+            items={items}
+            total={total}
+            hasFilters={Boolean(query.q || query.itemType || query.language)}
             state={itemState}
             error={itemError}
             onRetry={() => void retry()}
             onCreate={openCreateItemDialog}
             onSelect={(item) => openItemDrawer({ itemId: item.id })}
+            onClearFilters={() => setSearchParams({})}
+            page={query.page}
+            pageSize={query.pageSize}
+            onPageChange={(page) => updateSearch({ page: String(page) })}
           />
         </div>
       </section>
@@ -260,11 +345,15 @@ function DashboardTopbar({
   navigationButtonRef,
   newItemButtonRef,
   onNewItem,
+  query,
+  onQueryChange,
 }: {
   onOpenNavigation: () => void;
   navigationButtonRef: RefObject<HTMLButtonElement | null>;
   newItemButtonRef: RefObject<HTMLButtonElement | null>;
   onNewItem: () => void;
+  query: string;
+  onQueryChange: (query: string) => void;
 }) {
   return (
     <header className="border-border bg-background/90 sticky top-0 z-30 flex h-20 items-center gap-3 border-b px-4 backdrop-blur sm:px-6">
@@ -277,17 +366,24 @@ function DashboardTopbar({
       >
         <Menu aria-hidden="true" className="size-5" />
       </button>
-      <div
+      <label
         role="search"
         aria-label="Item search"
         className="bg-muted/60 text-muted-foreground flex h-11 max-w-md flex-1 items-center gap-3 rounded-lg px-3"
       >
         <Search aria-hidden="true" className="size-5" />
-        <span className="truncate">Search items...</span>
+        <input
+          aria-label="Search items"
+          value={query}
+          maxLength={200}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Search items..."
+          className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent outline-none"
+        />
         <kbd className="border-border bg-background/40 ml-auto hidden rounded border px-2 py-0.5 text-xs sm:inline">
           ⌘ K
         </kbd>
-      </div>
+      </label>
       <button
         type="button"
         className="border-border hover:bg-muted ml-auto hidden h-11 items-center gap-2 rounded-lg border px-4 sm:flex"
@@ -352,19 +448,31 @@ function CollectionCard({ collection }: { collection: Collection }) {
 function ItemSection({
   title,
   items,
+  total,
+  hasFilters,
   state,
   error,
   onRetry,
   onCreate,
   onSelect,
+  onClearFilters,
+  page,
+  pageSize,
+  onPageChange,
 }: {
   title: string;
   items: Item[];
+  total: number;
+  hasFilters: boolean;
   state: ItemLoadState;
   error: string | null;
   onRetry: () => void;
   onCreate: () => void;
   onSelect: (item: Item) => void;
+  onClearFilters: () => void;
+  page: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
 }) {
   return (
     <section
@@ -404,7 +512,7 @@ function ItemSection({
             </button>
           </div>
         )}
-        {state === "ready" && items.length === 0 && (
+        {state === "ready" && items.length === 0 && !hasFilters && (
           <div className="border-border bg-card/35 col-span-full rounded-xl border p-8 text-center">
             <h3 className="font-semibold">No items yet</h3>
             <p className="text-muted-foreground mt-2 text-sm">
@@ -419,11 +527,54 @@ function ItemSection({
             </button>
           </div>
         )}
+        {state === "ready" && items.length === 0 && hasFilters && (
+          <div className="border-border bg-card/35 col-span-full rounded-xl border p-8 text-center">
+            <h3 className="font-semibold">No matching items</h3>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Try a different search or clear your filters.
+            </p>
+            <button
+              type="button"
+              onClick={onClearFilters}
+              className="border-border hover:bg-muted mt-5 rounded-lg border px-4 py-2"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
         {state === "ready" &&
           items.map((item) => (
             <ItemCard key={item.id} item={item} onSelect={onSelect} />
           ))}
       </div>
+      {state === "ready" && total > pageSize && (
+        <nav
+          className="mt-6 flex items-center justify-between"
+          aria-label="Result pages"
+        >
+          <p className="text-muted-foreground text-sm">
+            Page {page} of {Math.ceil(total / pageSize)}
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page === 1}
+              onClick={() => onPageChange(page - 1)}
+              className="border-border hover:bg-muted rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => onPageChange(page + 1)}
+              className="border-border hover:bg-muted rounded-lg border px-3 py-2 text-sm disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      )}
     </section>
   );
 }
