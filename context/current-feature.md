@@ -1,4 +1,4 @@
-# Current Feature: Search and Filtering
+# Current Feature: Global Search / Command Palette
 
 ## Status
 
@@ -6,22 +6,22 @@ Completed
 
 ## Active Spec
 
-[Search and Filtering](features/search-and-filtering.md)
+[Global Search / Command Palette](features/global-search.md)
 
 ## Goals
 
-- Search item titles and content.
-- Filter results by item type and language.
-- Provide clear empty-stash and no-results states.
-- Keep search and filter state in shareable URL query parameters.
-- Add server-side pagination and a PostgreSQL search index.
+- Open global search from the top bar or with Command+K / Control+K.
+- Fuzzy-search all prefetched items and collections on the client.
+- Group results into Items and Collections with useful identifying metadata.
+- Support arrow-key navigation and Enter selection through the shadcn Command widget.
+- Open an item drawer or navigate to the selected collection surface.
 
 ## Notes
 
-- API returns a paginated response for item lists and uses PostgreSQL full-text
-  search over title and content.
-- Tags and data-backed collections remain intentionally out of scope.
-- Browser URL parameters are the source of truth for the dashboard query view.
+- Palette queries remain client-side after items are prefetched.
+- Existing server-side filters, pagination, and URL-backed query views stay intact.
+- Collections remain mock-backed; selection targets their dashboard card until the
+  collection feature introduces dedicated routes.
 
 ## History
 
@@ -42,3 +42,6 @@ Completed
   GitHub Flavored Markdown previews for note and prompt workflows (Completed).
 - [Search and Filtering](features/search-and-filtering.md) - PostgreSQL-backed
   title/content retrieval, filters, shareable URL state, and pagination (Completed).
+- [Global Search / Command Palette](features/global-search.md) - Prefetched,
+  client-side fuzzy search across items and collections with keyboard navigation
+  (Completed).

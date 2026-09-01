@@ -4,21 +4,25 @@ import {
   Folder,
   Menu,
   Plus,
-  Search,
   Sparkles,
   Star,
   Terminal,
 } from "lucide-react";
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { itemTypes, type Item, type ItemType } from "@/api/items";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemDrawer } from "@/components/items/item-drawer";
+import { GlobalSearch } from "@/components/search/global-search";
 import { Card, CardContent } from "@/components/ui/card";
-import { useItems, type ItemLoadState } from "@/hooks/use-items";
+import {
+  useGlobalSearchItems,
+  useItems,
+  type ItemLoadState,
+} from "@/hooks/use-items";
 import { collections, type Collection } from "@/lib/mock-data";
 import { snippetLanguages } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
@@ -74,6 +78,7 @@ function readPage(value: string | null): number {
 }
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
   const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
@@ -103,6 +108,7 @@ export function DashboardPage() {
     update,
     remove,
   } = useItems(query);
+  const globalSearch = useGlobalSearchItems();
   const updateSearch = useCallback(
     (changes: Record<string, string | undefined>) => {
       const next = new URLSearchParams(searchParams);
@@ -129,6 +135,19 @@ export function DashboardPage() {
       document.activeElement as HTMLElement | null;
     setCreateItemDialogOpen(true);
   }, []);
+  const openCollection = useCallback(
+    (collection: Collection) => {
+      const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+      navigate(`/dashboard${search}#${collection.id}`);
+      requestAnimationFrame(() => {
+        document.getElementById(collection.id)?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      });
+    },
+    [navigate, searchParams],
+  );
 
   useEffect(() => {
     if (navigationDrawerWasOpen.current && !navigationDrawerOpen) {
@@ -161,7 +180,8 @@ export function DashboardPage() {
   }, [createItemDialogOpen, itemDrawer]);
 
   const selectedItem = itemDrawer
-    ? items.find((item) => item.id === itemDrawer.itemId)
+    ? (items.find((item) => item.id === itemDrawer.itemId) ??
+      globalSearch.items.find((item) => item.id === itemDrawer.itemId))
     : undefined;
   const stats = [
     { label: "Total items", value: itemState === "ready" ? total : "—" },
@@ -209,8 +229,16 @@ export function DashboardPage() {
           newItemButtonRef={newItemButtonRef}
           onOpenNavigation={() => setNavigationDrawerOpen(true)}
           onNewItem={openCreateItemDialog}
-          query={query.q ?? ""}
-          onQueryChange={(q) => updateSearch({ q })}
+          search={
+            <GlobalSearch
+              items={globalSearch.items}
+              collections={collections}
+              state={globalSearch.state}
+              error={globalSearch.error}
+              onSelectItem={(item) => openItemDrawer({ itemId: item.id })}
+              onSelectCollection={openCollection}
+            />
+          }
         />
         <div className="mx-auto max-w-[104rem] p-4 sm:p-6 lg:p-8">
           <header>
@@ -321,7 +349,11 @@ export function DashboardPage() {
       <ItemCreateDialog
         open={createItemDialogOpen}
         onOpenChange={setCreateItemDialogOpen}
-        onCreate={create}
+        onCreate={async (input) => {
+          const item = await create(input);
+          globalSearch.add(item);
+          return item;
+        }}
         onCreated={(item) => {
           setCreateItemDialogOpen(false);
           setItemDrawer({ itemId: item.id });
@@ -332,8 +364,15 @@ export function DashboardPage() {
           key={selectedItem.id}
           item={selectedItem}
           onClose={closeItemDrawer}
-          onUpdate={update}
-          onDelete={remove}
+          onUpdate={async (id, input) => {
+            const item = await update(id, input);
+            globalSearch.replace(item);
+            return item;
+          }}
+          onDelete={async (id) => {
+            await remove(id);
+            globalSearch.remove(id);
+          }}
         />
       )}
     </main>
@@ -345,15 +384,13 @@ function DashboardTopbar({
   navigationButtonRef,
   newItemButtonRef,
   onNewItem,
-  query,
-  onQueryChange,
+  search,
 }: {
   onOpenNavigation: () => void;
   navigationButtonRef: RefObject<HTMLButtonElement | null>;
   newItemButtonRef: RefObject<HTMLButtonElement | null>;
   onNewItem: () => void;
-  query: string;
-  onQueryChange: (query: string) => void;
+  search: ReactNode;
 }) {
   return (
     <header className="border-border bg-background/90 sticky top-0 z-30 flex h-20 items-center gap-3 border-b px-4 backdrop-blur sm:px-6">
@@ -366,24 +403,7 @@ function DashboardTopbar({
       >
         <Menu aria-hidden="true" className="size-5" />
       </button>
-      <label
-        role="search"
-        aria-label="Item search"
-        className="bg-muted/60 text-muted-foreground flex h-11 max-w-md flex-1 items-center gap-3 rounded-lg px-3"
-      >
-        <Search aria-hidden="true" className="size-5" />
-        <input
-          aria-label="Search items"
-          value={query}
-          maxLength={200}
-          onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search items..."
-          className="placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent outline-none"
-        />
-        <kbd className="border-border bg-background/40 ml-auto hidden rounded border px-2 py-0.5 text-xs sm:inline">
-          ⌘ K
-        </kbd>
-      </label>
+      {search}
       <button
         type="button"
         className="border-border hover:bg-muted ml-auto hidden h-11 items-center gap-2 rounded-lg border px-4 sm:flex"

@@ -121,6 +121,20 @@ export async function fetchItems(
   return value;
 }
 
+export async function fetchAllItems(signal?: AbortSignal): Promise<Item[]> {
+  const pageSize = 50;
+  const firstPage = await fetchItems({ pageSize }, signal);
+  const pageCount = Math.ceil(firstPage.total / pageSize);
+  if (pageCount <= 1) return firstPage.items;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, index) =>
+      fetchItems({ page: index + 2, pageSize }, signal),
+    ),
+  );
+  return [...firstPage.items, ...remainingPages.flatMap((page) => page.items)];
+}
+
 export async function fetchItem(
   id: string,
   signal?: AbortSignal,

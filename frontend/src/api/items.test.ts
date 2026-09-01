@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import {
   createItem,
   deleteItem,
+  fetchAllItems,
   fetchItem,
   fetchItems,
   ItemApiError,
@@ -76,6 +77,29 @@ test("serializes search, filters, and pagination into the list URL", async () =>
   expect(fetchMock).toHaveBeenCalledWith(
     "/api/items?q=restart+services&item_type=command&language=shell&page=2&page_size=6",
     expect.objectContaining({ headers: { Accept: "application/json" } }),
+  );
+});
+
+test("prefetches every item page for client-side global search", async () => {
+  const secondItem = { ...item, id: "1f5c14b5-49c4-4a64-afd4-1cba7284ffdf" };
+  fetchMock
+    .mockResolvedValueOnce(
+      jsonResponse({ items: [item], page: 1, page_size: 50, total: 51 }),
+    )
+    .mockResolvedValueOnce(
+      jsonResponse({ items: [secondItem], page: 2, page_size: 50, total: 51 }),
+    );
+
+  await expect(fetchAllItems()).resolves.toEqual([item, secondItem]);
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    1,
+    "/api/items?page_size=50",
+    expect.any(Object),
+  );
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    2,
+    "/api/items?page=2&page_size=50",
+    expect.any(Object),
   );
 });
 

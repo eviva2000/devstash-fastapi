@@ -8,6 +8,7 @@ import { DashboardPage } from "@/components/dashboard/dashboard-page";
 
 const apiMocks = vi.hoisted(() => ({
   fetchItems: vi.fn(),
+  fetchAllItems: vi.fn(),
   createItem: vi.fn(),
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock("@/api/items", async (importOriginal) => {
   return {
     ...actual,
     fetchItems: apiMocks.fetchItems,
+    fetchAllItems: apiMocks.fetchAllItems,
     createItem: apiMocks.createItem,
     updateItem: apiMocks.updateItem,
     deleteItem: apiMocks.deleteItem,
@@ -71,6 +73,7 @@ function itemPage(entries: Item[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   apiMocks.fetchItems.mockResolvedValue(itemPage(items));
+  apiMocks.fetchAllItems.mockResolvedValue(items);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -81,6 +84,7 @@ function LocationProbe() {
     <>
       <span data-testid="location">{location.pathname}</span>
       <span data-testid="search-params">{location.search}</span>
+      <span data-testid="hash">{location.hash}</span>
     </>
   );
 }
@@ -154,9 +158,9 @@ test("restores shareable search and filter state from the URL", async () => {
     "/dashboard?q=authentication&type=snippet&language=typescript&page=2",
   );
 
-  expect(screen.getByRole("textbox", { name: "Search items" })).toHaveValue(
-    "authentication",
-  );
+  expect(
+    screen.getByRole("button", { name: "Open global search" }),
+  ).toBeVisible();
   expect(screen.getByRole("combobox", { name: "Filter by type" })).toHaveValue(
     "snippet",
   );
@@ -188,7 +192,80 @@ test("shows a distinct no-results state and clears URL filters", async () => {
   await user.click(screen.getByRole("button", { name: "Clear filters" }));
 
   expect(screen.getByTestId("search-params")).toHaveTextContent("");
-  expect(screen.getByRole("textbox", { name: "Search items" })).toHaveValue("");
+  expect(
+    screen.getByRole("button", { name: "Open global search" }),
+  ).toBeVisible();
+});
+
+test("opens a prefetched item from global search even when it is not on the current page", async () => {
+  const globalItem: Item = {
+    ...items[0],
+    id: "20000000-0000-4000-8000-000000000000",
+    title: "Remote deployment checklist",
+    content: "Production release steps",
+    item_type: "note",
+    language: null,
+  };
+  const updatedGlobalItem = {
+    ...globalItem,
+    title: "Updated deployment checklist",
+  };
+  apiMocks.fetchAllItems.mockResolvedValueOnce([globalItem]);
+  apiMocks.updateItem.mockResolvedValueOnce(updatedGlobalItem);
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.click(screen.getByRole("button", { name: "Open global search" }));
+  await user.type(
+    screen.getByRole("combobox", { name: "Search items and collections" }),
+    "Remote deployment",
+  );
+  await user.click(screen.getByText(globalItem.title));
+
+  expect(screen.getByRole("dialog", { name: globalItem.title })).toBeVisible();
+
+  const drawer = screen.getByRole("dialog", { name: globalItem.title });
+  await user.click(within(drawer).getByRole("button", { name: "Edit" }));
+  const titleInput = within(drawer).getByLabelText("Title");
+  await user.clear(titleInput);
+  await user.type(titleInput, updatedGlobalItem.title);
+  await user.click(
+    within(drawer).getByRole("button", { name: "Save changes" }),
+  );
+
+  expect(
+    await screen.findByRole("dialog", { name: updatedGlobalItem.title }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", {
+      name: `Open ${updatedGlobalItem.title}`,
+      hidden: true,
+    }),
+  ).not.toBeInTheDocument();
+});
+
+test("navigates a global collection result to its dashboard card", async () => {
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.keyboard("{Control>}k{/Control}");
+  const searchDialog = screen.getByRole("dialog", { name: "Global search" });
+  await user.type(
+    within(searchDialog).getByRole("combobox", {
+      name: "Search items and collections",
+    }),
+    "React Patterns",
+  );
+  await user.click(
+    within(searchDialog).getByRole("option", {
+      name: /React Patterns12 items/,
+    }),
+  );
+
+  expect(screen.getByTestId("hash")).toHaveTextContent("#react-patterns");
+  expect(
+    screen.getByRole("button", { name: "Open global search" }),
+  ).toHaveFocus();
 });
 
 test("creates an item in a modal with a selectable snippet language", async () => {

@@ -86,3 +86,39 @@ test("uses responsive recent-item grid columns", async ({ page }) => {
     ).split(" "),
   ).toHaveLength(4);
 });
+
+test("opens global search from the keyboard and finds prefetched item content", async ({
+  page,
+  request,
+}) => {
+  const marker = `palette-${Date.now()}`;
+  const title = `Global search item ${Date.now()}`;
+  const createResponse = await request.post("/api/items", {
+    data: {
+      title,
+      content: `Unique searchable content ${marker}`,
+      item_type: "note",
+      language: null,
+    },
+  });
+  expect(createResponse.status()).toBe(201);
+  const itemId = ((await createResponse.json()) as { id: string }).id;
+
+  try {
+    await page.goto("/dashboard");
+    await page.keyboard.press("Control+K");
+    const palette = page.getByRole("dialog", { name: "Global search" });
+    await expect(palette).toBeVisible();
+    await palette
+      .getByRole("combobox", { name: "Search items and collections" })
+      .fill(marker);
+    await expect(
+      palette.getByRole("option", { name: new RegExp(title) }),
+    ).toBeVisible();
+    await page.keyboard.press("Enter");
+
+    await expect(page.getByRole("dialog", { name: title })).toBeVisible();
+  } finally {
+    await request.delete(`/api/items/${itemId}`);
+  }
+});
