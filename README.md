@@ -4,10 +4,11 @@ DevStash is a full-stack knowledge workspace for developers—a single place to
 organize reusable snippets, prompts, commands, notes, links, and other technical
 resources.
 
-This repository is an incremental, teaching-focused rebuild of DevStash with a
-FastAPI backend, a React and TypeScript frontend, and PostgreSQL persistence. The
-project emphasizes explicit feature specifications, clear architecture, automated
-testing, and production-minded development practices.
+This repository is an incremental, teaching-focused rebuild of
+[DevStash](https://github.com/eviva2000/devstash) with a FastAPI backend, a React
+and TypeScript frontend, and PostgreSQL persistence. The project emphasizes
+explicit feature specifications, clear architecture, automated testing, and
+production-minded development practices.
 
 
 ## Technology stack
@@ -20,6 +21,25 @@ testing, and production-minded development practices.
 | Testing | pytest, Vitest, Testing Library, Playwright |
 | Quality | Ruff, strict Mypy, ESLint, Prettier |
 | Tooling | uv, npm, Docker Compose |
+
+## Authentication and ownership
+
+DevStash supports email-and-password registration, sign-in, browser-session
+restoration, and sign-out. Passwords are hashed with explicitly configured Argon2id
+parameters. Authentication uses opaque server-managed sessions in `HttpOnly`,
+`SameSite=Lax` cookies; only token hashes are persisted. Sessions expire after 30
+minutes of inactivity or 30 days in total.
+
+State-changing requests require a per-session CSRF token and a configured trusted
+origin. PostgreSQL-backed fixed-window rate limits protect registration (10 requests
+per source IP per hour) and failed sign-in attempts (5 per account or source IP per
+15 minutes), with atomic enforcement under concurrent requests. Authentication
+errors do not reveal whether an account exists.
+
+Every `/api/items` operation requires authentication. Item creation, listing,
+search, filtering, retrieval, updates, and deletion are scoped to the authenticated
+owner in PostgreSQL; another user's item returns the same `404` response as an
+unknown item.
 
 ## Project structure
 
@@ -225,7 +245,16 @@ GET /health
 ```
 
 Database availability is intentionally excluded from this response. Product APIs
-for snippets, prompts, commands, and notes are available at:
+for account sessions are available at:
+
+```http
+POST   /api/users
+POST   /api/sessions
+GET    /api/session
+DELETE /api/session
+```
+
+Authenticated APIs for snippets, prompts, commands, and notes are available at:
 
 ```http
 POST   /api/items
