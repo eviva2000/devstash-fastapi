@@ -5,15 +5,16 @@ import {
   Folder,
   Image,
   Link as LinkIcon,
-  Settings,
+  LogOut,
   Sparkles,
   Terminal,
   X,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { collections, dashboardUser, resourceTypes } from "@/lib/mock-data";
+import type { User } from "@/api/auth";
+import { collections, resourceTypes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const typeIcons = {
@@ -39,19 +40,25 @@ type DashboardSidebarProps = {
   collapsed?: boolean;
   mobile?: boolean;
   ariaHidden?: boolean;
+  user: User;
   onCollapse?: () => void;
   onClose?: () => void;
+  onLogout: () => Promise<void>;
 };
 
 export function DashboardSidebar({
   collapsed = false,
   mobile = false,
   ariaHidden,
+  user,
   onCollapse,
   onClose,
+  onLogout,
 }: DashboardSidebarProps) {
   const sidebarRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [logoutPending, setLogoutPending] = useState(false);
   useEffect(() => {
     if (!mobile) return;
     closeRef.current?.focus();
@@ -229,24 +236,37 @@ export function DashboardSidebar({
       </nav>
       <div className="border-border flex h-20 shrink-0 items-center gap-3 border-t px-4">
         <span className="bg-muted grid size-10 shrink-0 place-items-center rounded-full text-sm font-semibold">
-          {dashboardUser.initials}
+          {user.email.slice(0, 2).toUpperCase()}
         </span>
         {!collapsed && (
           <>
             <span className="min-w-0">
-              <strong className="block truncate text-sm">
-                {dashboardUser.name}
-              </strong>
+              <strong className="block truncate text-sm">Signed in</strong>
               <span className="text-muted-foreground block truncate text-xs">
-                {dashboardUser.email}
+                {user.email}
               </span>
             </span>
             <button
               type="button"
-              aria-label="Account settings"
+              aria-label="Sign out"
+              disabled={logoutPending}
+              title={logoutError ?? "Sign out"}
+              onClick={() => {
+                setLogoutPending(true);
+                setLogoutError(null);
+                void onLogout()
+                  .catch((error: unknown) =>
+                    setLogoutError(
+                      error instanceof Error
+                        ? error.message
+                        : "Sign out could not be completed.",
+                    ),
+                  )
+                  .finally(() => setLogoutPending(false));
+              }}
               className="hover:bg-muted ml-auto rounded-md p-2"
             >
-              <Settings aria-hidden="true" className="size-5" />
+              <LogOut aria-hidden="true" className="size-5" />
             </button>
           </>
         )}

@@ -1,6 +1,7 @@
 """Typed application configuration."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,6 +19,11 @@ class Settings(BaseSettings):
     )
 
     database_url: SecretStr
+    environment: Literal["development", "test", "production"] = "development"
+    trusted_origins: tuple[str, ...] = (
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+    )
 
     @field_validator("database_url")
     @classmethod
@@ -39,6 +45,15 @@ class Settings(BaseSettings):
                 "DATABASE_URL must include a username, host, and database name"
             )
 
+        return value
+
+    @field_validator("trusted_origins")
+    @classmethod
+    def reject_wildcard_trusted_origins(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        """Keep credentialed CORS restricted to explicit application origins."""
+
+        if "*" in value:
+            raise ValueError("TRUSTED_ORIGINS must not contain a wildcard")
         return value
 
     def reveal_database_url(self) -> str:

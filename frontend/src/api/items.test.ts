@@ -11,6 +11,7 @@ import {
   type Item,
   type ItemInput,
 } from "@/api/items";
+import { clearCsrfToken, setCsrfToken } from "@/api/csrf";
 
 const item: Item = {
   id: "0f5c14b5-49c4-4a64-afd4-1cba7284ffdf",
@@ -26,6 +27,7 @@ const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   fetchMock.mockReset();
+  clearCsrfToken();
   vi.stubGlobal("fetch", fetchMock);
 });
 
@@ -49,6 +51,7 @@ test("loads the item list and an individual item from canonical API routes", asy
     1,
     "/api/items",
     expect.objectContaining({
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
     }),
   );
@@ -56,6 +59,7 @@ test("loads the item list and an individual item from canonical API routes", asy
     2,
     `/api/items/${item.id}`,
     expect.objectContaining({
+      credentials: "same-origin",
       headers: { Accept: "application/json" },
     }),
   );
@@ -104,6 +108,7 @@ test("prefetches every item page for client-side global search", async () => {
 });
 
 test("creates and updates items with JSON requests", async () => {
+  setCsrfToken("csrf-proof");
   const input: ItemInput = {
     title: item.title,
     content: item.content,
@@ -128,6 +133,7 @@ test("creates and updates items with JSON requests", async () => {
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
+        "X-CSRF-Token": "csrf-proof",
       },
     }),
   );
@@ -142,13 +148,30 @@ test("creates and updates items with JSON requests", async () => {
 });
 
 test("deletes an item without reading a response body", async () => {
+  setCsrfToken("csrf-proof");
   fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
   await expect(deleteItem(item.id)).resolves.toBeUndefined();
   expect(fetchMock).toHaveBeenCalledWith(
     `/api/items/${item.id}`,
-    expect.objectContaining({ method: "DELETE" }),
+    expect.objectContaining({
+      method: "DELETE",
+      headers: expect.objectContaining({ "X-CSRF-Token": "csrf-proof" }),
+    }),
   );
+});
+
+test("announces an expired authenticated session", async () => {
+  setCsrfToken("csrf-proof");
+  const listener = vi.fn();
+  window.addEventListener("devstash:authentication-required", listener);
+  fetchMock.mockResolvedValueOnce(
+    jsonResponse({ detail: "Authentication required" }, 401),
+  );
+
+  await expect(fetchItems()).rejects.toBeInstanceOf(ItemApiError);
+  expect(listener).toHaveBeenCalledOnce();
+  window.removeEventListener("devstash:authentication-required", listener);
 });
 
 test("rejects failed requests and malformed service responses", async () => {

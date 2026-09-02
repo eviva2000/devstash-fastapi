@@ -4,6 +4,7 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { Item } from "@/api/items";
+import type { User } from "@/api/auth";
 import { DashboardPage } from "@/components/dashboard/dashboard-page";
 
 const apiMocks = vi.hoisted(() => ({
@@ -66,6 +67,12 @@ const items: Item[] = Array.from({ length: 7 }, (_, index) => ({
   updated_at: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
 }));
 
+const user: User = {
+  id: "bbfe91a0-29f7-43a7-b917-42f3cccf7930",
+  email: "developer@example.com",
+  created_at: "2026-09-01T09:30:00Z",
+};
+
 function itemPage(entries: Item[]) {
   return { items: entries, page: 1, page_size: 12, total: entries.length };
 }
@@ -92,7 +99,7 @@ function LocationProbe() {
 function renderDashboard(initialEntry = "/dashboard") {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
-      <DashboardPage />
+      <DashboardPage user={user} onLogout={vi.fn()} />
       <LocationProbe />
     </MemoryRouter>,
   );

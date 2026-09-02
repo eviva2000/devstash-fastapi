@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from devstash.api.auth import CsrfAuthDependency, CurrentAuthDependency
 from devstash.core.database import get_session
 from devstash.schemas.item import (
     ItemCreate,
@@ -42,11 +43,14 @@ async def _get_item(service: ItemService, item_id: str) -> ItemResponse:
 
 @router.post("", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
 async def create_item(
-    payload: ItemCreate, session: SessionDependency, response: Response
+    payload: ItemCreate,
+    session: SessionDependency,
+    response: Response,
+    auth: CsrfAuthDependency,
 ) -> ItemResponse:
     """Create and return one text item."""
 
-    item = await ItemService(session).create_item(payload)
+    item = await ItemService(session, auth.user.id).create_item(payload)
     response.headers["Location"] = f"/api/items/{item.id}"
     return ItemResponse.model_validate(item)
 
@@ -54,6 +58,7 @@ async def create_item(
 @router.get("", response_model=ItemListResponse)
 async def list_items(
     session: SessionDependency,
+    auth: CurrentAuthDependency,
     q: str | None = Query(default=None, max_length=200),
     item_type: ItemType | None = None,
     language: str | None = Query(default=None, max_length=64),
@@ -63,7 +68,7 @@ async def list_items(
     """Return a filtered, deterministic page of items."""
 
     query = q.strip() if q is not None else None
-    items, total = await ItemService(session).list_items(
+    items, total = await ItemService(session, auth.user.id).list_items(
         query=query or None,
         item_type=item_type,
         language=language.strip() or None if language is not None else None,
@@ -79,19 +84,24 @@ async def list_items(
 
 
 @router.get("/{item_id}", response_model=ItemResponse)
-async def get_item(item_id: str, session: SessionDependency) -> ItemResponse:
+async def get_item(
+    item_id: str, session: SessionDependency, auth: CurrentAuthDependency
+) -> ItemResponse:
     """Return one item or a stable not-found response."""
 
-    return await _get_item(ItemService(session), item_id)
+    return await _get_item(ItemService(session, auth.user.id), item_id)
 
 
 @router.patch("/{item_id}", response_model=ItemResponse)
 async def update_item(
-    item_id: str, payload: ItemUpdate, session: SessionDependency
+    item_id: str,
+    payload: ItemUpdate,
+    session: SessionDependency,
+    auth: CsrfAuthDependency,
 ) -> ItemResponse:
     """Apply a validated partial item update."""
 
-    service = ItemService(session)
+    service = ItemService(session, auth.user.id)
     try:
         item = await service.update_item(_parse_item_id(item_id), payload)
     except ItemNotFound as error:
@@ -106,11 +116,13 @@ async def update_item(
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_item(item_id: str, session: SessionDependency) -> Response:
+async def delete_item(
+    item_id: str, session: SessionDependency, auth: CsrfAuthDependency
+) -> Response:
     """Permanently delete one item."""
 
     try:
-        await ItemService(session).delete_item(_parse_item_id(item_id))
+        await ItemService(session, auth.user.id).delete_item(_parse_item_id(item_id))
     except ItemNotFound as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Item not found"

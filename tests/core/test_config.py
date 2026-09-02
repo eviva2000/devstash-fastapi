@@ -40,3 +40,12 @@ def test_settings_require_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_settings_reject_invalid_database_url(database_url: str) -> None:
     with pytest.raises(ValidationError, match="DATABASE_URL"):
         Settings(_env_file=None, database_url=SecretStr(database_url))
+
+
+def test_settings_reject_wildcard_trusted_origins() -> None:
+    with pytest.raises(ValidationError, match="TRUSTED_ORIGINS"):
+        Settings(
+            _env_file=None,
+            database_url=SecretStr(VALID_DATABASE_URL),
+            trusted_origins=("*",),
+        )

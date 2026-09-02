@@ -23,6 +23,23 @@ class TrackingAsyncSession(AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_application_sessions_keep_loaded_state_after_commit(
+    configured_database_url: str,
+) -> None:
+    database_module.get_engine.cache_clear()
+    database_module.get_session_factory.cache_clear()
+    factory = database_module.get_session_factory()
+    engine = database_module.get_engine()
+
+    try:
+        assert factory.kw["expire_on_commit"] is False
+    finally:
+        database_module.get_session_factory.cache_clear()
+        database_module.get_engine.cache_clear()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_managed_async_session_can_query_postgresql(
     configured_database_url: str,
 ) -> None:

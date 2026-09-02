@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -14,7 +15,7 @@ from sqlalchemy.engine import make_url
 from devstash.core.config import get_settings
 from devstash.core.database import Base
 
-MIGRATION_HEAD = "20260828_0003"
+MIGRATION_HEAD = "20260901_0005"
 
 
 def _alembic_config() -> Config:
@@ -58,6 +59,35 @@ def _items_table_exists(database_url: str) -> bool:
         return bool(row[0])
 
 
+def _table_exists(database_url: str, table_name: str) -> bool:
+    with connect(_direct_connection_url(database_url)) as connection:
+        result = connection.execute(
+            "SELECT to_regclass(%s) IS NOT NULL", (f"public.{table_name}",)
+        )
+        row = result.fetchone()
+        if row is None:
+            raise AssertionError("Expected the table-existence query to return a row")
+        return bool(row[0])
+
+
+def _column_is_nullable(database_url: str, table_name: str, column_name: str) -> bool:
+    with connect(_direct_connection_url(database_url)) as connection:
+        result = connection.execute(
+            """
+            SELECT is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+            """,
+            (table_name, column_name),
+        )
+        row = result.fetchone()
+        if row is None:
+            raise AssertionError(f"Expected {table_name}.{column_name} to exist")
+        return str(row[0]) == "YES"
+
+
 def _item_constraint_names(database_url: str) -> set[str]:
     with connect(_direct_connection_url(database_url)) as connection:
         result = connection.execute(
@@ -92,6 +122,10 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
         command.upgrade(config, "head")
         assert _current_revision(database_url) == MIGRATION_HEAD
         assert _items_table_exists(database_url)
+        assert _table_exists(database_url, "users")
+        assert _table_exists(database_url, "auth_sessions")
+        assert _table_exists(database_url, "auth_rate_limits")
+        assert not _column_is_nullable(database_url, "items", "owner_id")
         assert {
             "ck_items_item_type_valid",
             "ck_items_title_not_blank",
@@ -101,6 +135,7 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
         } <= _item_constraint_names(database_url)
         assert "ix_items_updated_at_id" in _item_index_names(database_url)
         assert "ix_items_search_vector" in _item_index_names(database_url)
+        assert "ix_items_owner_updated_at_id" in _item_index_names(database_url)
 
         command.downgrade(config, "base")
         assert _current_revision(database_url) is None
@@ -109,6 +144,52 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
         command.upgrade(config, "head")
         assert _current_revision(database_url) == MIGRATION_HEAD
         assert _items_table_exists(database_url)
+
+
+def test_legacy_items_require_explicit_owner_mapping(
+    database_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with _migration_database(database_url, monkeypatch):
+        config = _alembic_config()
+        command.downgrade(config, "20260828_0003")
+        item_id = uuid4()
+
+        with connect(_direct_connection_url(database_url)) as connection:
+            connection.execute(
+                """
+                INSERT INTO items (id, title, content, item_type)
+                VALUES (%s, 'Legacy item', 'Preserve me', 'note')
+                """,
+                (item_id,),
+            )
+            connection.commit()
+
+        command.upgrade(config, "20260901_0004")
+        with pytest.raises(RuntimeError, match="explicit owner mapping"):
+            command.upgrade(config, "head")
+
+        assert _current_revision(database_url) == "20260901_0004"
+        assert _column_is_nullable(database_url, "items", "owner_id")
+
+        owner_id = uuid4()
+        with connect(_direct_connection_url(database_url)) as connection:
+            connection.execute(
+                """
+                INSERT INTO users (id, email, password_hash)
+                VALUES (%s, 'legacy-owner@example.com', 'migration-only-hash')
+                """,
+                (owner_id,),
+            )
+            connection.execute(
+                "UPDATE items SET owner_id = %s WHERE id = %s",
+                (owner_id, item_id),
+            )
+            connection.commit()
+
+        command.upgrade(config, "head")
+        assert _current_revision(database_url) == MIGRATION_HEAD
+        assert not _column_is_nullable(database_url, "items", "owner_id")
 
 
 def test_alembic_check_detects_metadata_drift(

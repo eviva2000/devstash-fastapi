@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
 
+import { authenticate, authenticatedHeaders, removeItem } from "./auth";
+
 test("shows the dashboard and supports desktop sidebar collapse", async ({
   page,
-}) => {
-  await page.goto("/dashboard");
+}, testInfo) => {
+  await authenticate(page, testInfo);
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Recent collections" }),
@@ -19,8 +21,8 @@ test("shows the dashboard and supports desktop sidebar collapse", async ({
 
 test("keeps the desktop sidebar fixed while dashboard content scrolls", async ({
   page,
-}) => {
-  await page.goto("/dashboard");
+}, testInfo) => {
+  await authenticate(page, testInfo);
   const sidebar = page.getByRole("complementary", {
     name: "Dashboard navigation",
   });
@@ -37,9 +39,9 @@ test("keeps the desktop sidebar fixed while dashboard content scrolls", async ({
   expect(Math.abs(initialTop - scrolledTop)).toBeLessThan(1);
 });
 
-test("uses a navigation drawer on mobile", async ({ page }) => {
+test("uses a navigation drawer on mobile", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/dashboard");
+  await authenticate(page, testInfo);
   const openNavigation = page.getByRole("button", { name: "Open navigation" });
   await openNavigation.click();
   await expect(
@@ -55,11 +57,11 @@ test("uses a navigation drawer on mobile", async ({ page }) => {
   await expect(openNavigation).toBeFocused();
 });
 
-test("uses responsive recent-item grid columns", async ({ page }) => {
+test("uses responsive recent-item grid columns", async ({ page }, testInfo) => {
   const recentGrid = page.getByTestId("recent-items-grid");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/dashboard");
+  await authenticate(page, testInfo);
   expect(
     (
       await recentGrid.evaluate(
@@ -89,11 +91,12 @@ test("uses responsive recent-item grid columns", async ({ page }) => {
 
 test("opens global search from the keyboard and finds prefetched item content", async ({
   page,
-  request,
-}) => {
+}, testInfo) => {
   const marker = `palette-${Date.now()}`;
   const title = `Global search item ${Date.now()}`;
-  const createResponse = await request.post("/api/items", {
+  await authenticate(page, testInfo);
+  const createResponse = await page.request.post("/api/items", {
+    headers: await authenticatedHeaders(page),
     data: {
       title,
       content: `Unique searchable content ${marker}`,
@@ -105,7 +108,10 @@ test("opens global search from the keyboard and finds prefetched item content", 
   const itemId = ((await createResponse.json()) as { id: string }).id;
 
   try {
-    await page.goto("/dashboard");
+    await page.reload();
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" }),
+    ).toBeVisible();
     await page.keyboard.press("Control+K");
     const palette = page.getByRole("dialog", { name: "Global search" });
     await expect(palette).toBeVisible();
@@ -119,6 +125,6 @@ test("opens global search from the keyboard and finds prefetched item content", 
 
     await expect(page.getByRole("dialog", { name: title })).toBeVisible();
   } finally {
-    await request.delete(`/api/items/${itemId}`);
+    await removeItem(page, itemId);
   }
 });

@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+import { authenticate, removeItem } from "./auth";
+
 async function typeMonacoSource(page: Page, editor: Locator, source: string) {
   await editor.locator(".monaco-editor").click();
   await page.keyboard.insertText(source);
@@ -7,15 +9,14 @@ async function typeMonacoSource(page: Page, editor: Locator, source: string) {
 
 test("previews Markdown notes before saving and while reopening and editing", async ({
   page,
-  request,
-}) => {
+}, testInfo) => {
   const title = `E2E Markdown note ${Date.now()}`;
   const markdown = "# Deployment checklist\n\n- [x] Preview before saving";
   const updatedMarkdown = `${markdown}\n\n> Keep the dashboard route stable.`;
   let itemId: string | undefined;
 
   try {
-    await page.goto("/dashboard");
+    await authenticate(page, testInfo);
     const dashboardUrl = page.url();
     await page.getByRole("button", { name: "New item" }).click();
 
@@ -69,15 +70,14 @@ test("previews Markdown notes before saving and while reopening and editing", as
     expect((await updateResponsePromise).status()).toBe(200);
     await expect(page).toHaveURL(dashboardUrl);
   } finally {
-    if (itemId) await request.delete(`/api/items/${itemId}`);
+    if (itemId) await removeItem(page, itemId);
   }
 });
 
 test("creates an item in a dialog, then reopens, edits, and deletes it in the drawer", async ({
   context,
   page,
-  request,
-}) => {
+}, testInfo) => {
   const title = `E2E snippet ${Date.now()}`;
   const updatedTitle = `${title} updated`;
   const source = "export const answer: number = 42;";
@@ -85,10 +85,10 @@ test("creates an item in a dialog, then reopens, edits, and deletes it in the dr
   let itemId: string | undefined;
 
   try {
+    await authenticate(page, testInfo);
     await context.grantPermissions(["clipboard-read", "clipboard-write"], {
-      origin: "http://127.0.0.1:5173",
+      origin: new URL(page.url()).origin,
     });
-    await page.goto("/dashboard");
     const dashboardUrl = page.url();
     await page.getByRole("button", { name: "New item" }).click();
 
@@ -182,6 +182,6 @@ test("creates an item in a dialog, then reopens, edits, and deletes it in the dr
       page.getByRole("button", { name: `Open ${updatedTitle}` }),
     ).toHaveCount(0);
   } finally {
-    if (itemId) await request.delete(`/api/items/${itemId}`);
+    if (itemId) await removeItem(page, itemId);
   }
 });

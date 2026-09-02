@@ -12,6 +12,7 @@ import type { ReactNode, RefObject } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+import type { User } from "@/api/auth";
 import { itemTypes, type Item, type ItemType } from "@/api/items";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
@@ -77,7 +78,13 @@ function readPage(value: string | null): number {
   return Number.isInteger(page) && page >= 1 ? page : 1;
 }
 
-export function DashboardPage() {
+export function DashboardPage({
+  user,
+  onLogout,
+}: {
+  user: User;
+  onLogout: () => Promise<void>;
+}) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -196,9 +203,11 @@ export function DashboardPage() {
   return (
     <main className="bg-background text-foreground flex min-h-svh">
       <DashboardSidebar
+        user={user}
         collapsed={collapsed}
         ariaHidden={itemDrawer !== null ? true : undefined}
         onCollapse={() => setCollapsed((value) => !value)}
+        onLogout={onLogout}
       />
       {navigationDrawerOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
@@ -214,7 +223,12 @@ export function DashboardPage() {
             aria-label="Mobile navigation"
             className="relative w-fit"
           >
-            <DashboardSidebar mobile onClose={closeNavigationDrawer} />
+            <DashboardSidebar
+              mobile
+              user={user}
+              onClose={closeNavigationDrawer}
+              onLogout={onLogout}
+            />
           </div>
         </div>
       )}

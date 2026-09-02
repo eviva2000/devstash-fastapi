@@ -41,7 +41,9 @@ def get_engine() -> AsyncEngine:
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Create the process-wide factory for request-scoped sessions."""
 
-    return async_sessionmaker(bind=get_engine(), class_=AsyncSession)
+    return async_sessionmaker(
+        bind=get_engine(), class_=AsyncSession, expire_on_commit=False
+    )
 
 
 async def get_session() -> AsyncGenerator[AsyncSession]:

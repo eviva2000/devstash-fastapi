@@ -21,8 +21,9 @@ class InvalidItem(Exception):
 class ItemService:
     """Implement item workflows and explicit transaction boundaries."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, owner_id: UUID) -> None:
         self._session = session
+        self._owner_id = owner_id
         self._repository = ItemRepository(session)
 
     async def list_items(
@@ -35,6 +36,7 @@ class ItemService:
         page_size: int,
     ) -> tuple[list[Item], int]:
         return await self._repository.list(
+            owner_id=self._owner_id,
             query=query,
             item_type=item_type,
             language=language,
@@ -43,13 +45,13 @@ class ItemService:
         )
 
     async def get_item(self, item_id: UUID) -> Item:
-        item = await self._repository.get(item_id)
+        item = await self._repository.get(self._owner_id, item_id)
         if item is None:
             raise ItemNotFound
         return item
 
     async def create_item(self, payload: ItemCreate) -> Item:
-        item = Item(**payload.model_dump(mode="json"))
+        item = Item(owner_id=self._owner_id, **payload.model_dump(mode="json"))
         self._repository.add(item)
         await self._commit()
         await self._session.refresh(item)

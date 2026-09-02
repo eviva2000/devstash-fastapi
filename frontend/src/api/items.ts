@@ -1,3 +1,6 @@
+import { announceAuthenticationRequired } from "@/api/auth";
+import { getCsrfToken } from "@/api/csrf";
+
 export const itemTypes = ["snippet", "prompt", "command", "note"] as const;
 export type ItemType = (typeof itemTypes)[number];
 
@@ -74,16 +77,21 @@ function isItemPage(value: unknown): value is ItemPage {
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
   try {
+    const csrfToken = getCsrfToken();
+    const unsafe = init?.method !== undefined && init.method !== "GET";
     const response = await fetch(`/api/items${path}`, {
       ...init,
+      credentials: "same-origin",
       headers: {
         Accept: "application/json",
         ...(init?.body === undefined
           ? {}
           : { "Content-Type": "application/json" }),
+        ...(unsafe && csrfToken !== null ? { "X-CSRF-Token": csrfToken } : {}),
         ...init?.headers,
       },
     });
+    if (response.status === 401) announceAuthenticationRequired();
     if (!response.ok)
       throw new ItemApiError("The item request could not be completed.");
     return response;

@@ -3,7 +3,16 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, Computed, DateTime, Index, String, Text, func
+from sqlalchemy import (
+    CheckConstraint,
+    Computed,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -31,6 +40,11 @@ class Item(Base):
     id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4
     )
+    owner_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(200))
     content: Mapped[str] = mapped_column(Text)
     item_type: Mapped[str] = mapped_column(String(20))
@@ -52,4 +66,10 @@ class Item(Base):
 
 
 Index("ix_items_updated_at_id", Item.updated_at.desc(), Item.id.desc())
+Index(
+    "ix_items_owner_updated_at_id",
+    Item.owner_id,
+    Item.updated_at.desc(),
+    Item.id.desc(),
+)
 Index("ix_items_search_vector", Item.search_vector, postgresql_using="gin")

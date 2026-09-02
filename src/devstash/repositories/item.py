@@ -1,5 +1,6 @@
 """Database operations for items."""
 
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,13 +20,14 @@ class ItemRepository:
     async def list(
         self,
         *,
+        owner_id: UUID,
         query: str | None,
         item_type: ItemType | None,
         language: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[Item], int]:
-        filters: list[ColumnElement[bool]] = []
+        filters: list[ColumnElement[bool]] = [Item.owner_id == owner_id]
         if query is not None:
             filters.append(
                 Item.search_vector.op("@@")(func.websearch_to_tsquery("english", query))
@@ -49,8 +51,13 @@ class ItemRepository:
         result = await self._session.scalars(statement)
         return list(result.all()), total or 0
 
-    async def get(self, item_id: UUID) -> Item | None:
-        return await self._session.get(Item, item_id)
+    async def get(self, owner_id: UUID, item_id: UUID) -> Item | None:
+        return cast(
+            Item | None,
+            await self._session.scalar(
+                select(Item).where(Item.id == item_id, Item.owner_id == owner_id)
+            ),
+        )
 
     def add(self, item: Item) -> None:
         self._session.add(item)
