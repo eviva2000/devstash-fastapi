@@ -334,7 +334,7 @@ export function DashboardPage({
               </button>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {collections.map((collection) => (
+              {collections.slice(0, 3).map((collection) => (
                 <CollectionCard key={collection.id} collection={collection} />
               ))}
             </div>

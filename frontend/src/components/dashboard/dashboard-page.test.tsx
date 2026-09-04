@@ -129,6 +129,25 @@ test("renders dashboard overview and its server-provided item page", async () =>
   ).not.toBeInTheDocument();
 });
 
+test("shows only the three most recent collections", () => {
+  renderDashboard();
+
+  const recentCollections = screen
+    .getByRole("heading", { name: "Recent collections" })
+    .closest("section");
+
+  expect(recentCollections).not.toBeNull();
+  expect(
+    within(recentCollections!).getAllByRole("heading", { level: 3 }),
+  ).toHaveLength(3);
+  expect(within(recentCollections!).getByText("React Patterns")).toBeVisible();
+  expect(within(recentCollections!).getByText("Python Snippets")).toBeVisible();
+  expect(within(recentCollections!).getByText("Context Files")).toBeVisible();
+  expect(
+    within(recentCollections!).queryByText("Interview Prep"),
+  ).not.toBeInTheDocument();
+});
+
 test("shows loading, empty, and recoverable request-error states", async () => {
   let resolveItems: ((value: ReturnType<typeof itemPage>) => void) | undefined;
   apiMocks.fetchItems.mockReturnValueOnce(
@@ -320,7 +339,10 @@ test("creates an item in a modal with a selectable snippet language", async () =
   expect(within(createDialog).getByText("Content is required.")).toBeVisible();
 
   await user.type(within(createDialog).getByLabelText("Title"), created.title);
-  await user.selectOptions(within(createDialog).getByLabelText("Type"), "note");
+  await user.click(
+    within(createDialog).getByRole("combobox", { name: "Type" }),
+  );
+  await user.click(screen.getByRole("option", { name: "Note" }));
   expect(
     within(createDialog).queryByRole("combobox", {
       name: "Language (optional)",
@@ -500,7 +522,8 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   const titleInput = within(dialog).getByLabelText("Title");
   await user.clear(titleInput);
   await user.type(titleInput, updated.title);
-  await user.selectOptions(within(dialog).getByLabelText("Type"), "prompt");
+  await user.click(within(dialog).getByRole("combobox", { name: "Type" }));
+  await user.click(screen.getByRole("option", { name: "Prompt" }));
   await user.click(
     within(dialog).getByRole("button", { name: "Save changes" }),
   );

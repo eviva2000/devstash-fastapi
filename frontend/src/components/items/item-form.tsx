@@ -95,24 +95,30 @@ export function ItemForm({
           className={inputClasses}
         />
       </Field>
-      <Field label="Type" htmlFor="item-type">
-        <select
-          id="item-type"
+      <div>
+        <p id="item-type-label" className="mb-2 text-sm font-medium">
+          Type
+        </p>
+        <Select
           value={itemType}
-          onChange={(event) => {
-            const nextType = event.target.value as ItemInput["item_type"];
+          onValueChange={(value) => {
+            const nextType = value as ItemInput["item_type"];
             setItemType(nextType);
             if (nextType !== "snippet") setLanguage("");
           }}
-          className={inputClasses}
         >
-          {itemTypes.map((type) => (
-            <option key={type} value={type}>
-              {type[0].toUpperCase() + type.slice(1)}
-            </option>
-          ))}
-        </select>
-      </Field>
+          <SelectTrigger id="item-type" aria-labelledby="item-type-label">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {itemTypes.map((type) => (
+              <SelectItem key={type} value={type}>
+                {type[0].toUpperCase() + type.slice(1)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       {itemType === "snippet" && (
         <div>
           <p id="item-language-label" className="mb-2 text-sm font-medium">
