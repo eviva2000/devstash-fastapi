@@ -17,6 +17,10 @@ const apiMocks = vi.hoisted(() => ({
   deleteItem: vi.fn(),
   fetchCollections: vi.fn(),
   createCollection: vi.fn(),
+  updateCollection: vi.fn(),
+  deleteCollection: vi.fn(),
+  addCollectionItem: vi.fn(),
+  removeCollectionItem: vi.fn(),
 }));
 
 vi.mock("@/components/items/lazy-code-editor", () => ({
@@ -64,6 +68,10 @@ vi.mock("@/api/collections", async (importOriginal) => {
     ...actual,
     fetchCollections: apiMocks.fetchCollections,
     createCollection: apiMocks.createCollection,
+    updateCollection: apiMocks.updateCollection,
+    deleteCollection: apiMocks.deleteCollection,
+    addCollectionItem: apiMocks.addCollectionItem,
+    removeCollectionItem: apiMocks.removeCollectionItem,
   };
 });
 
@@ -88,6 +96,7 @@ const user: User = {
 
 const collections: Collection[] = mockCollections.map((collection, index) => ({
   ...collection,
+  itemIds: [],
   createdAt: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
   updatedAt: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
 }));
@@ -230,11 +239,106 @@ test("shows only the three most recent collections", async () => {
   ).not.toBeInTheDocument();
 });
 
+test("opens a collection drawer, edits it, and confirms deletion", async () => {
+  const user = userEvent.setup();
+  const original = collections[0];
+  const updated = {
+    ...original,
+    name: "Updated collection",
+    description: "Updated description",
+    itemCount: 0,
+    itemIds: [],
+    types: [],
+    updatedAt: "2026-09-07T12:00:00Z",
+  };
+  apiMocks.updateCollection.mockResolvedValueOnce(updated);
+  apiMocks.deleteCollection.mockResolvedValueOnce(undefined);
+  apiMocks.addCollectionItem.mockResolvedValueOnce({
+    ...updated,
+    itemIds: [items[0].id],
+    itemCount: 1,
+    types: ["snippet"],
+  });
+  apiMocks.removeCollectionItem.mockResolvedValueOnce(updated);
+  renderDashboard();
+
+  const trigger = await screen.findByRole("button", {
+    name: `Open ${original.name}`,
+  });
+  await user.click(trigger);
+  let drawer = screen.getByRole("dialog", { name: original.name });
+  expect(within(drawer).getByText(original.description)).toBeVisible();
+  expect(within(drawer).queryByText(items[0].title)).not.toBeInTheDocument();
+  expect(
+    within(drawer).getByText("No items in this collection."),
+  ).toBeVisible();
+  await user.click(within(drawer).getByRole("button", { name: "Edit" }));
+  await user.clear(within(drawer).getByLabelText("Name"));
+  await user.type(within(drawer).getByLabelText("Name"), updated.name);
+  await user.clear(within(drawer).getByLabelText("Description"));
+  await user.type(
+    within(drawer).getByLabelText("Description"),
+    updated.description,
+  );
+  await user.click(
+    within(drawer).getByRole("button", { name: "Save changes" }),
+  );
+
+  expect(apiMocks.updateCollection).toHaveBeenCalledWith(original.id, {
+    name: updated.name,
+    description: updated.description,
+  });
+  drawer = await screen.findByRole("dialog", { name: updated.name });
+  expect(screen.getAllByText(updated.name).length).toBeGreaterThan(1);
+  expect(within(drawer).queryByText(items[0].title)).not.toBeInTheDocument();
+  await user.click(within(drawer).getByRole("button", { name: "Edit" }));
+  await user.click(within(drawer).getByRole("combobox", { name: "Add item" }));
+  await user.click(screen.getByRole("option", { name: items[0].title }));
+  expect(apiMocks.addCollectionItem).toHaveBeenCalledWith(
+    original.id,
+    items[0].id,
+  );
+  expect(
+    await within(drawer).findByRole("button", {
+      name: `Remove ${items[0].title} from collection`,
+    }),
+  ).toBeVisible();
+  expect(within(drawer).getByText("Current items (1)")).toBeVisible();
+  await user.click(
+    within(drawer).getByRole("button", {
+      name: `Remove ${items[0].title} from collection`,
+    }),
+  );
+  expect(apiMocks.removeCollectionItem).toHaveBeenCalledWith(
+    original.id,
+    items[0].id,
+  );
+  expect(await within(drawer).findByText("Current items (0)")).toBeVisible();
+  await user.click(within(drawer).getByRole("button", { name: "Cancel" }));
+  await user.click(within(drawer).getByRole("button", { name: "Delete" }));
+  const confirmation = screen.getByRole("alertdialog", {
+    name: `Delete “${updated.name}”?`,
+  });
+  expect(within(confirmation).getByText(/cannot be undone/i)).toBeVisible();
+  await user.click(
+    within(confirmation).getByRole("button", { name: "Delete collection" }),
+  );
+
+  await waitFor(() =>
+    expect(apiMocks.deleteCollection).toHaveBeenCalledWith(original.id),
+  );
+  expect(
+    screen.queryByRole("dialog", { name: updated.name }),
+  ).not.toBeInTheDocument();
+  expect(screen.queryByText(updated.name)).not.toBeInTheDocument();
+});
+
 test("creates a collection and updates collection surfaces with toast feedback", async () => {
   const created: Collection = {
     id: "40000000-0000-4000-8000-000000000001",
     name: "API Design",
     description: "Stable interface patterns",
+    itemIds: [],
     itemCount: 0,
     favorite: false,
     accent: "orange",

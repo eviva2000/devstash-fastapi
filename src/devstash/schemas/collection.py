@@ -32,6 +32,10 @@ class CollectionCreate(BaseModel):
         return _required_text(value, "description")
 
 
+class CollectionUpdate(CollectionCreate):
+    """Payload for replacing editable collection fields."""
+
+
 class CollectionResponse(BaseModel):
     """Canonical collection representation returned by the API."""
 
@@ -42,6 +46,7 @@ class CollectionResponse(BaseModel):
     description: str
     created_at: datetime
     updated_at: datetime
+    item_ids: list[UUID] = Field(default_factory=list)
     item_count: int = 0
     favorite: bool = False
     types: list[str] = Field(default_factory=list)

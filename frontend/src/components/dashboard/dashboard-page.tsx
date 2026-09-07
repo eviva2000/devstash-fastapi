@@ -16,6 +16,7 @@ import type { User } from "@/api/auth";
 import type { Collection } from "@/api/collections";
 import { itemTypes, type Item, type ItemType } from "@/api/items";
 import { CollectionCreateDialog } from "@/components/collections/collection-create-dialog";
+import { CollectionDrawer } from "@/components/collections/collection-drawer";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemDrawer } from "@/components/items/item-drawer";
@@ -100,11 +101,16 @@ export function DashboardPage({
     message: string;
   } | null>(null);
   const [itemDrawer, setItemDrawer] = useState<ItemDrawerState | null>(null);
+  const [collectionDrawerId, setCollectionDrawerId] = useState<string | null>(
+    null,
+  );
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const newItemButtonRef = useRef<HTMLButtonElement>(null);
   const navigationDrawerWasOpen = useRef(false);
   const itemDrawerWasOpen = useRef(false);
   const itemDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const collectionDrawerTriggerRef = useRef<HTMLElement | null>(null);
+  const collectionDrawerWasOpen = useRef(false);
   const createItemDialogWasOpen = useRef(false);
   const createItemDialogTriggerRef = useRef<HTMLElement | null>(null);
   const query = {
@@ -166,6 +172,15 @@ export function DashboardPage({
       document.activeElement as HTMLElement | null;
     setCreateItemDialogOpen(true);
   }, []);
+  const closeCollectionDrawer = useCallback(
+    () => setCollectionDrawerId(null),
+    [],
+  );
+  const openCollectionDrawer = useCallback((collection: Collection) => {
+    collectionDrawerTriggerRef.current =
+      document.activeElement as HTMLElement | null;
+    setCollectionDrawerId(collection.id);
+  }, []);
   const openCollection = useCallback(
     (collection: Collection) => {
       const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
@@ -200,6 +215,14 @@ export function DashboardPage({
   }, [itemDrawer]);
 
   useEffect(() => {
+    const isOpen = collectionDrawerId !== null;
+    if (collectionDrawerWasOpen.current && !isOpen) {
+      collectionDrawerTriggerRef.current?.focus();
+    }
+    collectionDrawerWasOpen.current = isOpen;
+  }, [collectionDrawerId]);
+
+  useEffect(() => {
     if (
       createItemDialogWasOpen.current &&
       !createItemDialogOpen &&
@@ -213,6 +236,9 @@ export function DashboardPage({
   const selectedItem = itemDrawer
     ? (items.find((item) => item.id === itemDrawer.itemId) ??
       globalSearch.items.find((item) => item.id === itemDrawer.itemId))
+    : undefined;
+  const selectedCollection = collectionDrawerId
+    ? collections.find((collection) => collection.id === collectionDrawerId)
     : undefined;
   const stats = [
     { label: "Total items", value: itemState === "ready" ? total : "—" },
@@ -231,7 +257,9 @@ export function DashboardPage({
         collections={collections}
         itemTypeCounts={sidebarItemTypeCounts}
         collapsed={collapsed}
-        ariaHidden={itemDrawer !== null ? true : undefined}
+        ariaHidden={
+          itemDrawer !== null || collectionDrawerId !== null ? true : undefined
+        }
         onCollapse={() => setCollapsed((value) => !value)}
         onLogout={onLogout}
       />
@@ -262,7 +290,11 @@ export function DashboardPage({
       )}
       <section
         aria-hidden={
-          navigationDrawerOpen || itemDrawer !== null ? true : undefined
+          navigationDrawerOpen ||
+          itemDrawer !== null ||
+          collectionDrawerId !== null
+            ? true
+            : undefined
         }
         className="min-w-0 flex-1"
       >
@@ -393,6 +425,7 @@ export function DashboardPage({
                     <CollectionCard
                       key={collection.id}
                       collection={collection}
+                      onSelect={openCollectionDrawer}
                     />
                   ))}
             </div>
@@ -459,6 +492,18 @@ export function DashboardPage({
           }}
         />
       )}
+      {selectedCollection && (
+        <CollectionDrawer
+          key={selectedCollection.id}
+          collection={selectedCollection}
+          items={globalSearch.items}
+          onClose={closeCollectionDrawer}
+          onUpdate={collectionState.update}
+          onDelete={collectionState.remove}
+          onAddItem={collectionState.addItem}
+          onRemoveItem={collectionState.removeItem}
+        />
+      )}
       {toast && (
         <Toast
           kind={toast.kind}
@@ -520,7 +565,13 @@ function DashboardTopbar({
   );
 }
 
-function CollectionCard({ collection }: { collection: Collection }) {
+function CollectionCard({
+  collection,
+  onSelect,
+}: {
+  collection: Collection;
+  onSelect: (collection: Collection) => void;
+}) {
   return (
     <Card
       id={collection.id}
@@ -529,33 +580,40 @@ function CollectionCard({ collection }: { collection: Collection }) {
         accentClasses[collection.accent],
       )}
     >
-      <CardContent className="flex h-full flex-col p-5">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold">{collection.name}</h3>
-          {collection.favorite && (
-            <Star
-              aria-label="Favorite collection"
-              className="size-4 fill-yellow-400 text-yellow-400"
-            />
-          )}
-        </div>
-        <p className="text-muted-foreground mt-1 text-sm">
-          {collection.itemCount} items
-        </p>
-        <p className="text-muted-foreground mt-5 text-sm">
-          {collection.description}
-        </p>
-        <div
-          className="text-muted-foreground mt-auto flex gap-2 pt-5"
-          aria-label={`${collection.name} item types`}
-        >
-          {collection.types.map((type) => (
-            <span className="bg-muted rounded px-2 py-0.5 text-xs" key={type}>
-              {type}
-            </span>
-          ))}
-        </div>
-      </CardContent>
+      <button
+        type="button"
+        aria-label={`Open ${collection.name}`}
+        onClick={() => onSelect(collection)}
+        className="focus-visible:ring-ring h-full w-full rounded-xl text-left outline-none focus-visible:ring-2"
+      >
+        <CardContent className="flex h-full flex-col p-5">
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold">{collection.name}</h3>
+            {collection.favorite && (
+              <Star
+                aria-label="Favorite collection"
+                className="size-4 fill-yellow-400 text-yellow-400"
+              />
+            )}
+          </div>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {collection.itemCount} items
+          </p>
+          <p className="text-muted-foreground mt-5 text-sm">
+            {collection.description}
+          </p>
+          <div
+            className="text-muted-foreground mt-auto flex gap-2 pt-5"
+            aria-label={`${collection.name} item types`}
+          >
+            {collection.types.map((type) => (
+              <span className="bg-muted rounded px-2 py-0.5 text-xs" key={type}>
+                {type}
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </button>
     </Card>
   );
 }

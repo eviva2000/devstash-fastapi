@@ -32,6 +32,7 @@ const collections: Collection[] = [
     id: "react-patterns",
     name: "React Patterns",
     description: "Common React patterns and hooks",
+    itemIds: [],
     itemCount: 12,
     favorite: true,
     accent: "blue",

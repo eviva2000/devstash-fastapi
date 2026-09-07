@@ -8,6 +8,7 @@ export type Collection = {
   id: string;
   name: string;
   description: string;
+  itemIds: string[];
   itemCount: number;
   favorite: boolean;
   types: string[];
@@ -49,6 +50,9 @@ function readCollection(value: unknown): Collection | null {
     typeof collection.id !== "string" ||
     typeof collection.name !== "string" ||
     typeof collection.description !== "string" ||
+    (collection.item_ids !== undefined &&
+      (!Array.isArray(collection.item_ids) ||
+        !collection.item_ids.every((id) => typeof id === "string"))) ||
     typeof collection.item_count !== "number" ||
     typeof collection.favorite !== "boolean" ||
     !Array.isArray(collection.types) ||
@@ -61,6 +65,7 @@ function readCollection(value: unknown): Collection | null {
     id: collection.id,
     name: collection.name,
     description: collection.description,
+    itemIds: (collection.item_ids as string[] | undefined) ?? [],
     itemCount: collection.item_count,
     favorite: collection.favorite,
     types: collection.types,
@@ -70,11 +75,11 @@ function readCollection(value: unknown): Collection | null {
   };
 }
 
-async function request(init?: RequestInit): Promise<Response> {
+async function request(path = "", init?: RequestInit): Promise<Response> {
   try {
     const csrfToken = getCsrfToken();
     const unsafe = init?.method !== undefined && init.method !== "GET";
-    const response = await fetch("/api/collections", {
+    const response = await fetch(`/api/collections${path}`, {
       ...init,
       credentials: "same-origin",
       headers: {
@@ -105,7 +110,7 @@ async function request(init?: RequestInit): Promise<Response> {
 export async function fetchCollections(
   signal?: AbortSignal,
 ): Promise<Collection[]> {
-  const response = await request({ signal });
+  const response = await request("", { signal });
   const value: unknown = await response.json();
   if (!Array.isArray(value))
     throw new CollectionApiError(
@@ -122,7 +127,7 @@ export async function fetchCollections(
 export async function createCollection(
   input: CollectionInput,
 ): Promise<Collection> {
-  const response = await request({
+  const response = await request("", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -132,4 +137,48 @@ export async function createCollection(
       "The collection service returned invalid data.",
     );
   return collection;
+}
+
+export async function updateCollection(
+  id: string,
+  input: CollectionInput,
+): Promise<Collection> {
+  const response = await request(`/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+  const collection = readCollection(await response.json());
+  if (collection === null)
+    throw new CollectionApiError(
+      "The collection service returned invalid data.",
+    );
+  return collection;
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  await request(`/${id}`, { method: "DELETE" });
+}
+
+async function changeCollectionItem(
+  collectionId: string,
+  itemId: string,
+  method: "PUT" | "DELETE",
+): Promise<Collection> {
+  const response = await request(`/${collectionId}/items/${itemId}`, {
+    method,
+  });
+  const collection = readCollection(await response.json());
+  if (collection === null)
+    throw new CollectionApiError(
+      "The collection service returned invalid data.",
+    );
+  return collection;
+}
+
+export function addCollectionItem(collectionId: string, itemId: string) {
+  return changeCollectionItem(collectionId, itemId, "PUT");
+}
+
+export function removeCollectionItem(collectionId: string, itemId: string) {
+  return changeCollectionItem(collectionId, itemId, "DELETE");
 }

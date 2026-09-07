@@ -1,4 +1,4 @@
-# Current Feature: Sidebar Live Data
+# Current Feature: Collection Management
 
 ## Status
 
@@ -6,35 +6,37 @@ Completed
 
 ## Active Spec
 
-[Sidebar Live Data](features/sidebar-live-data.md)
+[Collection Management](features/collection-management.md)
 
 ## Goals
 
-- Replace the sidebar's mock item-type catalog and counts with values derived from
-  authenticated, owner-scoped item data.
-- Keep the sidebar collection list sourced from the authenticated collection service
-  and remove any remaining runtime dependency on mock collection data.
-- Update sidebar item-type counts immediately after successful item creation,
-  type changes, and deletion without requiring a full-page reload.
-- Update sidebar collection entries immediately after successful collection creation
-  while preserving the established ordering and display limits.
-- Represent loading, failure, and empty states without displaying invented counts or
-  stale mock records.
+- Make each dashboard collection card open an accessible collection drawer.
+- Let the authenticated owner edit and persist a collection's name and description.
+- Let the authenticated owner delete a collection only after explicit confirmation
+  in a shadcn AlertDialog.
+- Synchronize successful edits and deletions across every collection-backed dashboard
+  surface without a full-page reload.
+- Let the owner add existing items to or remove items from an open collection drawer.
+- Provide clear saving, deletion, validation, success, and failure feedback.
 
 ## Notes
 
-- Item-type totals are derived from the existing complete, owner-scoped client item
-  state, independently of the visible item's filters and pagination; no aggregate
-  API is needed.
-- Collection entries already come from the authenticated collection service; this
-  feature prevents regressions and removes remaining sidebar mock dependencies.
-- Per-collection item counts and type badges require collection membership and stay
-  out of scope.
-- Show only the four persisted item types in the authenticated sidebar; Files,
-  Images, and Links remain future product types.
+- Add owner-scoped, CSRF-protected PATCH and DELETE collection endpoints using the
+  existing repository/service/API boundaries.
+- Reuse the collection creation validation limits: name and description are required,
+  with maximum lengths of 200 and 2,000 characters.
+- Open the drawer from dashboard collection cards; sidebar and global-search
+  selections keep their current navigation behavior.
+- Persist owner-scoped item membership and derive collection counts and type badges;
+  soft deletion and editing favorites remain out of scope.
+- Show only current members in drawer read mode; expose non-member items through a
+  shadcn Select while editing, with removal controls for existing members.
 
 ## History
 
+- [Collection Management](features/collection-management.md) - Owner-scoped
+  collection editing, confirmed deletion, and persisted item membership in an
+  accessible dashboard drawer (Completed).
 - [Health Endpoint](features/health-endpoint.md) - Initial `GET /health` endpoint
   returning `{"status": "ok"}`.
 - [Full-Stack Application Foundation](features/application-foundation.md) - React and

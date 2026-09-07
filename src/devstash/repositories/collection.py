@@ -1,5 +1,6 @@
 """Database operations for collections."""
 
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,5 +23,18 @@ class CollectionRepository:
         )
         return list(result.all())
 
+    async def get(self, owner_id: UUID, collection_id: UUID) -> Collection | None:
+        return cast(
+            Collection | None,
+            await self._session.scalar(
+                select(Collection).where(
+                    Collection.id == collection_id, Collection.owner_id == owner_id
+                )
+            ),
+        )
+
     def add(self, collection: Collection) -> None:
         self._session.add(collection)
+
+    async def delete(self, collection: Collection) -> None:
+        await self._session.delete(collection)

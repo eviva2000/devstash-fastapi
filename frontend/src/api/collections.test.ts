@@ -2,8 +2,12 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import {
   CollectionApiError,
+  addCollectionItem,
   createCollection,
+  deleteCollection,
   fetchCollections,
+  removeCollectionItem,
+  updateCollection,
 } from "@/api/collections";
 import { clearCsrfToken, setCsrfToken } from "@/api/csrf";
 
@@ -75,6 +79,69 @@ test("creates a collection with JSON and CSRF protection", async () => {
         "X-CSRF-Token": "csrf-proof",
       },
     }),
+  );
+});
+
+test("updates and deletes a collection with scoped URLs and CSRF protection", async () => {
+  setCsrfToken("csrf-proof");
+  const input = { name: "Updated", description: "Changed" };
+  fetchMock
+    .mockResolvedValueOnce(jsonResponse({ ...responseCollection, ...input }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+  await expect(updateCollection(responseCollection.id, input)).resolves.toEqual(
+    expect.objectContaining(input),
+  );
+  await expect(
+    deleteCollection(responseCollection.id),
+  ).resolves.toBeUndefined();
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    1,
+    `/api/collections/${responseCollection.id}`,
+    expect.objectContaining({
+      method: "PATCH",
+      body: JSON.stringify(input),
+      headers: expect.objectContaining({ "X-CSRF-Token": "csrf-proof" }),
+    }),
+  );
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    2,
+    `/api/collections/${responseCollection.id}`,
+    expect.objectContaining({ method: "DELETE" }),
+  );
+});
+
+test("adds and removes collection items through nested resource URLs", async () => {
+  setCsrfToken("csrf-proof");
+  fetchMock
+    .mockResolvedValueOnce(
+      jsonResponse({
+        ...responseCollection,
+        item_ids: ["item-1"],
+        item_count: 1,
+      }),
+    )
+    .mockResolvedValueOnce(
+      jsonResponse({ ...responseCollection, item_ids: [], item_count: 0 }),
+    );
+
+  await expect(
+    addCollectionItem(responseCollection.id, "item-1"),
+  ).resolves.toEqual(
+    expect.objectContaining({ itemIds: ["item-1"], itemCount: 1 }),
+  );
+  await expect(
+    removeCollectionItem(responseCollection.id, "item-1"),
+  ).resolves.toEqual(expect.objectContaining({ itemIds: [], itemCount: 0 }));
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    1,
+    `/api/collections/${responseCollection.id}/items/item-1`,
+    expect.objectContaining({ method: "PUT" }),
+  );
+  expect(fetchMock).toHaveBeenNthCalledWith(
+    2,
+    `/api/collections/${responseCollection.id}/items/item-1`,
+    expect.objectContaining({ method: "DELETE" }),
   );
 });
 

@@ -1,13 +1,45 @@
 """SQLAlchemy persistence model for user collections."""
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Table,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from devstash.core.database import Base
+
+if TYPE_CHECKING:
+    from devstash.models.item import Item
+
+
+collection_items = Table(
+    "collection_items",
+    Base.metadata,
+    Column(
+        "collection_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("collections.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "item_id",
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("items.id", ondelete="CASCADE"),
+        primary_key=True,
+        index=True,
+    ),
+)
 
 
 class Collection(Base):
@@ -35,6 +67,25 @@ class Collection(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    items: Mapped[list["Item"]] = relationship(
+        secondary=collection_items, lazy="selectin", order_by="Item.id"
+    )
+
+    @property
+    def item_ids(self) -> list[UUID]:
+        return [item.id for item in self.items]
+
+    @property
+    def item_count(self) -> int:
+        return len(self.items)
+
+    @property
+    def types(self) -> list[str]:
+        return sorted({item.item_type for item in self.items})
+
+    @property
+    def favorite(self) -> bool:
+        return False
 
 
 Index(
