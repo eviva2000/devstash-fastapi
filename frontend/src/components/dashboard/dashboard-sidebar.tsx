@@ -14,7 +14,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { User } from "@/api/auth";
-import { collections, resourceTypes } from "@/lib/mock-data";
+import type { Collection } from "@/api/collections";
+import { resourceTypes } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 const typeIcons = {
@@ -41,6 +42,7 @@ type DashboardSidebarProps = {
   mobile?: boolean;
   ariaHidden?: boolean;
   user: User;
+  collections: Collection[];
   onCollapse?: () => void;
   onClose?: () => void;
   onLogout: () => Promise<void>;
@@ -51,6 +53,7 @@ export function DashboardSidebar({
   mobile = false,
   ariaHidden,
   user,
+  collections,
   onCollapse,
   onClose,
   onLogout,

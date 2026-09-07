@@ -15,7 +15,7 @@ from sqlalchemy.engine import make_url
 from devstash.core.config import get_settings
 from devstash.core.database import Base
 
-MIGRATION_HEAD = "20260901_0005"
+MIGRATION_HEAD = "20260904_0006"
 
 
 def _alembic_config() -> Config:
@@ -125,6 +125,7 @@ def test_migrations_upgrade_downgrade_and_return_to_head(
         assert _table_exists(database_url, "users")
         assert _table_exists(database_url, "auth_sessions")
         assert _table_exists(database_url, "auth_rate_limits")
+        assert _table_exists(database_url, "collections")
         assert not _column_is_nullable(database_url, "items", "owner_id")
         assert {
             "ck_items_item_type_valid",

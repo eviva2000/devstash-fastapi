@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from devstash.api.auth import router as auth_router
+from devstash.api.collections import router as collections_router
 from devstash.api.items import router as items_router
 from devstash.core.config import get_settings
 
@@ -35,6 +36,7 @@ app.add_middleware(
 )
 app.include_router(auth_router)
 app.include_router(items_router)
+app.include_router(collections_router)
 
 
 @app.middleware("http")

@@ -24,9 +24,11 @@ export function DialogContent({
   className,
   children,
   showCloseButton = true,
+  closeLabel = "Close create item dialog",
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
+  closeLabel?: string;
 }) {
   return (
     <DialogPrimitive.Portal>
@@ -41,7 +43,7 @@ export function DialogContent({
         {children}
         {showCloseButton && (
           <DialogPrimitive.Close
-            aria-label="Close create item dialog"
+            aria-label={closeLabel}
             className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring absolute top-4 right-4 rounded-md p-2 outline-none focus-visible:ring-2"
           >
             <X aria-hidden="true" className="size-4" />

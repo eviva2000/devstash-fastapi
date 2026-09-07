@@ -13,18 +13,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { User } from "@/api/auth";
+import type { Collection } from "@/api/collections";
 import { itemTypes, type Item, type ItemType } from "@/api/items";
+import { CollectionCreateDialog } from "@/components/collections/collection-create-dialog";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { ItemCreateDialog } from "@/components/items/item-create-dialog";
 import { ItemDrawer } from "@/components/items/item-drawer";
 import { GlobalSearch } from "@/components/search/global-search";
 import { Card, CardContent } from "@/components/ui/card";
+import { Toast } from "@/components/ui/toast";
+import { useCollections } from "@/hooks/use-collections";
 import {
   useGlobalSearchItems,
   useItems,
   type ItemLoadState,
 } from "@/hooks/use-items";
-import { collections, type Collection } from "@/lib/mock-data";
 import { snippetLanguages } from "@/lib/code-language";
 import { cn } from "@/lib/utils";
 
@@ -90,6 +93,12 @@ export function DashboardPage({
   const [collapsed, setCollapsed] = useState(false);
   const [navigationDrawerOpen, setNavigationDrawerOpen] = useState(false);
   const [createItemDialogOpen, setCreateItemDialogOpen] = useState(false);
+  const [createCollectionDialogOpen, setCreateCollectionDialogOpen] =
+    useState(false);
+  const [toast, setToast] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
   const [itemDrawer, setItemDrawer] = useState<ItemDrawerState | null>(null);
   const navigationButtonRef = useRef<HTMLButtonElement>(null);
   const newItemButtonRef = useRef<HTMLButtonElement>(null);
@@ -116,6 +125,8 @@ export function DashboardPage({
     remove,
   } = useItems(query);
   const globalSearch = useGlobalSearchItems();
+  const collectionState = useCollections();
+  const { collections } = collectionState;
   const updateSearch = useCallback(
     (changes: Record<string, string | undefined>) => {
       const next = new URLSearchParams(searchParams);
@@ -204,6 +215,7 @@ export function DashboardPage({
     <main className="bg-background text-foreground flex min-h-svh">
       <DashboardSidebar
         user={user}
+        collections={collections}
         collapsed={collapsed}
         ariaHidden={itemDrawer !== null ? true : undefined}
         onCollapse={() => setCollapsed((value) => !value)}
@@ -226,6 +238,7 @@ export function DashboardPage({
             <DashboardSidebar
               mobile
               user={user}
+              collections={collections}
               onClose={closeNavigationDrawer}
               onLogout={onLogout}
             />
@@ -243,6 +256,7 @@ export function DashboardPage({
           newItemButtonRef={newItemButtonRef}
           onOpenNavigation={() => setNavigationDrawerOpen(true)}
           onNewItem={openCreateItemDialog}
+          onNewCollection={() => setCreateCollectionDialogOpen(true)}
           search={
             <GlobalSearch
               items={globalSearch.items}
@@ -334,9 +348,38 @@ export function DashboardPage({
               </button>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {collections.slice(0, 3).map((collection) => (
-                <CollectionCard key={collection.id} collection={collection} />
-              ))}
+              {collectionState.state === "loading" && (
+                <p
+                  role="status"
+                  className="text-muted-foreground col-span-full py-6"
+                >
+                  Loading collections…
+                </p>
+              )}
+              {collectionState.state === "error" && (
+                <div
+                  role="alert"
+                  className="border-border col-span-full rounded-lg border p-4"
+                >
+                  <p>{collectionState.error}</p>
+                  <button
+                    type="button"
+                    onClick={() => void collectionState.retry()}
+                    className="border-border hover:bg-muted mt-3 rounded-lg border px-3 py-2 text-sm"
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+              {collectionState.state === "ready" &&
+                collections
+                  .slice(0, 3)
+                  .map((collection) => (
+                    <CollectionCard
+                      key={collection.id}
+                      collection={collection}
+                    />
+                  ))}
             </div>
           </section>
           <ItemSection
@@ -373,6 +416,18 @@ export function DashboardPage({
           setItemDrawer({ itemId: item.id });
         }}
       />
+      <CollectionCreateDialog
+        open={createCollectionDialogOpen}
+        onOpenChange={setCreateCollectionDialogOpen}
+        onCreate={collectionState.create}
+        onCreated={(collection) => {
+          setCreateCollectionDialogOpen(false);
+          setToast({
+            kind: "success",
+            message: `“${collection.name}” was created.`,
+          });
+        }}
+      />
       {selectedItem && (
         <ItemDrawer
           key={selectedItem.id}
@@ -389,6 +444,13 @@ export function DashboardPage({
           }}
         />
       )}
+      {toast && (
+        <Toast
+          kind={toast.kind}
+          message={toast.message}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </main>
   );
 }
@@ -398,12 +460,14 @@ function DashboardTopbar({
   navigationButtonRef,
   newItemButtonRef,
   onNewItem,
+  onNewCollection,
   search,
 }: {
   onOpenNavigation: () => void;
   navigationButtonRef: RefObject<HTMLButtonElement | null>;
   newItemButtonRef: RefObject<HTMLButtonElement | null>;
   onNewItem: () => void;
+  onNewCollection: () => void;
   search: ReactNode;
 }) {
   return (
@@ -420,10 +484,12 @@ function DashboardTopbar({
       {search}
       <button
         type="button"
-        className="border-border hover:bg-muted ml-auto hidden h-11 items-center gap-2 rounded-lg border px-4 sm:flex"
+        aria-label="New collection"
+        onClick={onNewCollection}
+        className="border-border hover:bg-muted ml-auto flex h-11 items-center gap-2 rounded-lg border px-3 sm:px-4"
       >
         <Folder aria-hidden="true" className="size-4" />
-        <span>New Collection</span>
+        <span className="hidden sm:inline">New collection</span>
       </button>
       <button
         ref={newItemButtonRef}

@@ -2,9 +2,9 @@ import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 
+import type { Collection } from "@/api/collections";
 import type { Item } from "@/api/items";
 import { GlobalSearch } from "@/components/search/global-search";
-import type { Collection } from "@/lib/mock-data";
 
 const items: Item[] = [
   {
@@ -36,6 +36,8 @@ const collections: Collection[] = [
     favorite: true,
     accent: "blue",
     types: ["snippet", "note"],
+    createdAt: "2026-08-20T09:00:00Z",
+    updatedAt: "2026-08-20T09:00:00Z",
   },
 ];
 

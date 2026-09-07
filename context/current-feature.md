@@ -1,4 +1,4 @@
-# Current Feature: Authentication and Per-User Item Ownership
+# Current Feature: Collection Creation
 
 ## Status
 
@@ -6,33 +6,36 @@ Completed
 
 ## Active Spec
 
-[Authentication and Per-User Item Ownership](features/authentication-and-item-ownership.md)
+[Collection Creation](features/collection-creation.md)
 
 ## Goals
 
-- Let a developer register with an email address and password, sign in, restore an
-  existing browser session, and sign out.
-- Protect the dashboard and all item API operations behind authentication.
-- Assign every new item to the authenticated user without accepting ownership data
-  from the client.
-- Scope item creation, retrieval, listing, search, filtering, updates, and deletion
-  to the authenticated owner at the database-query boundary.
-- Prevent callers from discovering whether another user's item exists.
-- Migrate existing shared-workspace items through an explicit, reviewed ownership
-  policy before making `owner_id` mandatory.
-- Add accessible registration, sign-in, session-loading, and sign-out states to the
-  React application.
+- Persist collections in PostgreSQL and scope every collection read and create to
+  the authenticated owner.
+- Provide typed server-side collection access and authenticated HTTP endpoints for
+  collection listing and creation, following the existing item boundaries.
+- Load collection data from the server instead of importing the mock collection
+  catalog into user-facing dashboard surfaces.
+- Add a top-bar button that opens an accessible modal for collection name and
+  description.
+- Validate and save the form through the collection API, show an accessible success
+  or failure toast, and prevent duplicate submissions while saving.
+- Add the created collection to every collection-backed client surface without a
+  full-page reload.
 
 ## Notes
 
-- Scope is email/password authentication with opaque server-managed cookie sessions;
-  GitHub sign-in and full account lifecycle workflows remain separate.
-- Legacy items require explicit owner mapping; sessions use a 30-minute idle and
-  30-day absolute lifetime with multiple active sessions; PostgreSQL stores shared,
-  independently enforced source and account rate limits; account email remains while
-  the account exists and stale sessions are purged after 30 days.
-- The item API payload remains unchanged; ownership is server-controlled and foreign
-  items are indistinguishable from unknown IDs.
+- Previous-project references to Server Components and `lib/db` are adapted to the
+  selected React/Vite and FastAPI stack: typed frontend API calls backed by FastAPI
+  services and owner-scoped repositories.
+- Names and descriptions are required with 200- and 2,000-character limits;
+  duplicate names are allowed, accents are derived in the frontend, and toast UI
+  stays project-owned.
+- Creation must immediately update all collection consumers while preserving the
+  existing recent-grid limits and sidebar grouping.
+- Implementation sequence: persistence and owner-scoped backend API; typed frontend
+  API/state; modal and toast workflow; synchronized dashboard consumers; focused and
+  full verification.
 
 ## History
 
@@ -60,3 +63,6 @@ Completed
   - Email/password sessions, CSRF protection, PostgreSQL-backed authentication rate
   limits, explicit legacy ownership migration, and owner-scoped item access
   (Completed).
+- [Collection Creation](features/collection-creation.md) - Owner-scoped PostgreSQL
+  collections, authenticated list/create API endpoints, and an accessible dashboard
+  creation workflow with synchronized client collection surfaces (Completed).

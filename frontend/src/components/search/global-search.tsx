@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import type { Collection } from "@/api/collections";
 import type { Item, ItemType } from "@/api/items";
 import {
   CommandDialog,
@@ -20,7 +21,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import type { ItemLoadState } from "@/hooks/use-items";
-import type { Collection } from "@/lib/mock-data";
 
 const itemIcons: Record<ItemType, typeof Braces> = {
   snippet: Braces,

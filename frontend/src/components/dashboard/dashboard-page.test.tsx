@@ -3,9 +3,11 @@ import { userEvent } from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
+import type { Collection } from "@/api/collections";
 import type { Item } from "@/api/items";
 import type { User } from "@/api/auth";
 import { DashboardPage } from "@/components/dashboard/dashboard-page";
+import { collections as mockCollections } from "@/lib/mock-data";
 
 const apiMocks = vi.hoisted(() => ({
   fetchItems: vi.fn(),
@@ -13,6 +15,8 @@ const apiMocks = vi.hoisted(() => ({
   createItem: vi.fn(),
   updateItem: vi.fn(),
   deleteItem: vi.fn(),
+  fetchCollections: vi.fn(),
+  createCollection: vi.fn(),
 }));
 
 vi.mock("@/components/items/lazy-code-editor", () => ({
@@ -54,6 +58,15 @@ vi.mock("@/api/items", async (importOriginal) => {
   };
 });
 
+vi.mock("@/api/collections", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/collections")>();
+  return {
+    ...actual,
+    fetchCollections: apiMocks.fetchCollections,
+    createCollection: apiMocks.createCollection,
+  };
+});
+
 const items: Item[] = Array.from({ length: 7 }, (_, index) => ({
   id: `00000000-0000-4000-8000-00000000000${index}`,
   title: index === 0 ? "useAuth Hook" : `Saved item ${index + 1}`,
@@ -73,6 +86,12 @@ const user: User = {
   created_at: "2026-09-01T09:30:00Z",
 };
 
+const collections: Collection[] = mockCollections.map((collection, index) => ({
+  ...collection,
+  createdAt: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
+  updatedAt: `2026-08-${String(20 - index).padStart(2, "0")}T09:00:00Z`,
+}));
+
 function itemPage(entries: Item[]) {
   return { items: entries, page: 1, page_size: 12, total: entries.length };
 }
@@ -81,6 +100,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   apiMocks.fetchItems.mockResolvedValue(itemPage(items));
   apiMocks.fetchAllItems.mockResolvedValue(items);
+  apiMocks.fetchCollections.mockResolvedValue(collections);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -129,7 +149,7 @@ test("renders dashboard overview and its server-provided item page", async () =>
   ).not.toBeInTheDocument();
 });
 
-test("shows only the three most recent collections", () => {
+test("shows only the three most recent collections", async () => {
   renderDashboard();
 
   const recentCollections = screen
@@ -137,15 +157,75 @@ test("shows only the three most recent collections", () => {
     .closest("section");
 
   expect(recentCollections).not.toBeNull();
-  expect(
-    within(recentCollections!).getAllByRole("heading", { level: 3 }),
-  ).toHaveLength(3);
+  await waitFor(() =>
+    expect(
+      within(recentCollections!).getAllByRole("heading", { level: 3 }),
+    ).toHaveLength(3),
+  );
   expect(within(recentCollections!).getByText("React Patterns")).toBeVisible();
   expect(within(recentCollections!).getByText("Python Snippets")).toBeVisible();
   expect(within(recentCollections!).getByText("Context Files")).toBeVisible();
   expect(
     within(recentCollections!).queryByText("Interview Prep"),
   ).not.toBeInTheDocument();
+});
+
+test("creates a collection and updates collection surfaces with toast feedback", async () => {
+  const created: Collection = {
+    id: "40000000-0000-4000-8000-000000000001",
+    name: "API Design",
+    description: "Stable interface patterns",
+    itemCount: 0,
+    favorite: false,
+    accent: "orange",
+    types: [],
+    createdAt: "2026-09-04T09:00:00Z",
+    updatedAt: "2026-09-04T09:00:00Z",
+  };
+  apiMocks.createCollection
+    .mockRejectedValueOnce(new Error("Collection creation failed."))
+    .mockResolvedValueOnce(created);
+  const user = userEvent.setup();
+  renderDashboard();
+
+  await user.click(screen.getByRole("button", { name: "New collection" }));
+  const dialog = screen.getByRole("dialog", { name: "Create collection" });
+  await user.click(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  );
+  expect(within(dialog).getByText("Name is required.")).toBeVisible();
+  expect(within(dialog).getByText("Description is required.")).toBeVisible();
+
+  await user.type(within(dialog).getByLabelText("Name"), created.name);
+  await user.type(
+    within(dialog).getByLabelText("Description"),
+    created.description,
+  );
+  await user.click(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  );
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Collection creation failed.",
+  );
+  expect(within(dialog).getByLabelText("Name")).toHaveValue(created.name);
+
+  await user.click(
+    within(dialog).getByRole("button", { name: "Create collection" }),
+  );
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    `“${created.name}” was created.`,
+  );
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getAllByText(created.name).length).toBeGreaterThanOrEqual(2);
+
+  await user.click(screen.getByRole("button", { name: "Open global search" }));
+  await user.type(
+    screen.getByRole("combobox", { name: "Search items and collections" }),
+    created.name,
+  );
+  expect(
+    screen.getByRole("option", { name: /API Design0 items/ }),
+  ).toBeVisible();
 });
 
 test("shows loading, empty, and recoverable request-error states", async () => {

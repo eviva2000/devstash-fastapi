@@ -19,6 +19,39 @@ test("shows the dashboard and supports desktop sidebar collapse", async ({
   ).toBeVisible();
 });
 
+test("creates a collection and keeps it after reload", async ({
+  page,
+}, testInfo) => {
+  const name = `Release references ${Date.now()}`;
+  await authenticate(page, testInfo);
+
+  await page.getByRole("button", { name: "New collection" }).click();
+  const dialog = page.getByRole("dialog", { name: "Create collection" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog
+    .getByLabel("Description")
+    .fill("Checklists and notes for safe releases");
+  await dialog
+    .getByRole("button", { name: "Create collection", exact: true })
+    .click();
+
+  await expect(page.getByRole("status")).toContainText(
+    `“${name}” was created.`,
+  );
+  await expect(page.getByRole("heading", { name, level: 3 })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name, level: 3 })).toBeVisible();
+  await page.keyboard.press("Control+K");
+  const palette = page.getByRole("dialog", { name: "Global search" });
+  await palette
+    .getByRole("combobox", { name: "Search items and collections" })
+    .fill(name);
+  await expect(
+    palette.getByRole("option", { name: new RegExp(`${name}\\s+0 items`) }),
+  ).toBeVisible();
+});
+
 test("keeps the desktop sidebar fixed while dashboard content scrolls", async ({
   page,
 }, testInfo) => {

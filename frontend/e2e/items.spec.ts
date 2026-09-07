@@ -22,7 +22,8 @@ test("previews Markdown notes before saving and while reopening and editing", as
 
     const createDrawer = page.getByRole("dialog", { name: "Create item" });
     await createDrawer.getByLabel("Title").fill(title);
-    await createDrawer.getByLabel("Type").selectOption("note");
+    await createDrawer.getByRole("combobox", { name: "Type" }).click();
+    await page.getByRole("option", { name: "Note", exact: true }).click();
     await createDrawer.getByRole("textbox", { name: "Content" }).fill(markdown);
     await createDrawer.getByRole("tab", { name: "Preview" }).click();
     await expect(
@@ -94,7 +95,6 @@ test("creates an item in a dialog, then reopens, edits, and deletes it in the dr
 
     const createDialog = page.getByRole("dialog", { name: "Create item" });
     await createDialog.getByLabel("Title").fill(title);
-    await createDialog.getByLabel("Type").selectOption("snippet");
     await createDialog
       .getByRole("combobox", { name: "Language (optional)" })
       .click();
