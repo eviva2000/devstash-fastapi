@@ -3,8 +3,6 @@ import {
   ChevronLeft,
   File,
   Folder,
-  Image,
-  Link as LinkIcon,
   LogOut,
   Sparkles,
   Terminal,
@@ -15,27 +13,45 @@ import { Link } from "react-router-dom";
 
 import type { User } from "@/api/auth";
 import type { Collection } from "@/api/collections";
-import { resourceTypes } from "@/lib/mock-data";
+import type { ItemType } from "@/api/items";
 import { cn } from "@/lib/utils";
 
-const typeIcons = {
-  snippets: Braces,
-  prompts: Sparkles,
-  commands: Terminal,
-  notes: File,
-  files: File,
-  images: Image,
-  links: LinkIcon,
-};
-const typeColors = {
-  blue: "text-blue-400",
-  violet: "text-violet-400",
-  orange: "text-orange-400",
-  yellow: "text-yellow-300",
-  slate: "text-slate-400",
-  pink: "text-pink-400",
-  emerald: "text-emerald-400",
-};
+const itemTypeLinks: ReadonlyArray<{
+  type: ItemType;
+  slug: string;
+  label: string;
+  icon: typeof Braces;
+  color: string;
+}> = [
+  {
+    type: "snippet",
+    slug: "snippets",
+    label: "Snippets",
+    icon: Braces,
+    color: "text-blue-400",
+  },
+  {
+    type: "prompt",
+    slug: "prompts",
+    label: "Prompts",
+    icon: Sparkles,
+    color: "text-violet-400",
+  },
+  {
+    type: "command",
+    slug: "commands",
+    label: "Commands",
+    icon: Terminal,
+    color: "text-orange-400",
+  },
+  {
+    type: "note",
+    slug: "notes",
+    label: "Notes",
+    icon: File,
+    color: "text-yellow-300",
+  },
+];
 
 type DashboardSidebarProps = {
   collapsed?: boolean;
@@ -43,6 +59,7 @@ type DashboardSidebarProps = {
   ariaHidden?: boolean;
   user: User;
   collections: Collection[];
+  itemTypeCounts: Record<ItemType, number> | null;
   onCollapse?: () => void;
   onClose?: () => void;
   onLogout: () => Promise<void>;
@@ -54,6 +71,7 @@ export function DashboardSidebar({
   ariaHidden,
   user,
   collections,
+  itemTypeCounts,
   onCollapse,
   onClose,
   onLogout,
@@ -150,27 +168,30 @@ export function DashboardSidebar({
           </p>
         )}
         <ul className="space-y-1">
-          {resourceTypes.map((type) => {
-            const Icon = typeIcons[type.slug as keyof typeof typeIcons];
+          {itemTypeLinks.map((itemType) => {
+            const Icon = itemType.icon;
+            const count = itemTypeCounts?.[itemType.type];
+            const countLabel =
+              count === undefined
+                ? "count unavailable"
+                : `${count} ${count === 1 ? "item" : "items"}`;
             return (
-              <li key={type.slug}>
+              <li key={itemType.type}>
                 <Link
-                  aria-label={
-                    collapsed ? `${type.label}, ${type.count} items` : undefined
-                  }
-                  title={collapsed ? type.label : undefined}
-                  to={`/items/${type.slug}`}
+                  aria-label={`${itemType.label}, ${countLabel}`}
+                  title={collapsed ? itemType.label : undefined}
+                  to={`/items/${itemType.slug}`}
                   className="focus-visible:ring-ring hover:bg-muted flex items-center rounded-lg px-2 py-2.5 focus-visible:ring-2"
                 >
                   <Icon
                     aria-hidden="true"
-                    className={cn("size-5 shrink-0", typeColors[type.color])}
+                    className={cn("size-5 shrink-0", itemType.color)}
                   />
                   {!collapsed && (
                     <>
-                      <span className="ml-3">{type.label}</span>
+                      <span className="ml-3">{itemType.label}</span>
                       <span className="text-muted-foreground ml-auto text-sm tabular-nums">
-                        {type.count}
+                        {count ?? "—"}
                       </span>
                     </>
                   )}

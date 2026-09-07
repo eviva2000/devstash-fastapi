@@ -1,4 +1,4 @@
-# Current Feature: Collection Creation
+# Current Feature: Sidebar Live Data
 
 ## Status
 
@@ -6,36 +6,32 @@ Completed
 
 ## Active Spec
 
-[Collection Creation](features/collection-creation.md)
+[Sidebar Live Data](features/sidebar-live-data.md)
 
 ## Goals
 
-- Persist collections in PostgreSQL and scope every collection read and create to
-  the authenticated owner.
-- Provide typed server-side collection access and authenticated HTTP endpoints for
-  collection listing and creation, following the existing item boundaries.
-- Load collection data from the server instead of importing the mock collection
-  catalog into user-facing dashboard surfaces.
-- Add a top-bar button that opens an accessible modal for collection name and
-  description.
-- Validate and save the form through the collection API, show an accessible success
-  or failure toast, and prevent duplicate submissions while saving.
-- Add the created collection to every collection-backed client surface without a
-  full-page reload.
+- Replace the sidebar's mock item-type catalog and counts with values derived from
+  authenticated, owner-scoped item data.
+- Keep the sidebar collection list sourced from the authenticated collection service
+  and remove any remaining runtime dependency on mock collection data.
+- Update sidebar item-type counts immediately after successful item creation,
+  type changes, and deletion without requiring a full-page reload.
+- Update sidebar collection entries immediately after successful collection creation
+  while preserving the established ordering and display limits.
+- Represent loading, failure, and empty states without displaying invented counts or
+  stale mock records.
 
 ## Notes
 
-- Previous-project references to Server Components and `lib/db` are adapted to the
-  selected React/Vite and FastAPI stack: typed frontend API calls backed by FastAPI
-  services and owner-scoped repositories.
-- Names and descriptions are required with 200- and 2,000-character limits;
-  duplicate names are allowed, accents are derived in the frontend, and toast UI
-  stays project-owned.
-- Creation must immediately update all collection consumers while preserving the
-  existing recent-grid limits and sidebar grouping.
-- Implementation sequence: persistence and owner-scoped backend API; typed frontend
-  API/state; modal and toast workflow; synchronized dashboard consumers; focused and
-  full verification.
+- Item-type totals are derived from the existing complete, owner-scoped client item
+  state, independently of the visible item's filters and pagination; no aggregate
+  API is needed.
+- Collection entries already come from the authenticated collection service; this
+  feature prevents regressions and removes remaining sidebar mock dependencies.
+- Per-collection item counts and type badges require collection membership and stay
+  out of scope.
+- Show only the four persisted item types in the authenticated sidebar; Files,
+  Images, and Links remain future product types.
 
 ## History
 
@@ -66,3 +62,5 @@ Completed
 - [Collection Creation](features/collection-creation.md) - Owner-scoped PostgreSQL
   collections, authenticated list/create API endpoints, and an accessible dashboard
   creation workflow with synchronized client collection surfaces (Completed).
+- [Sidebar Live Data](features/sidebar-live-data.md) - Authenticated item-type counts
+  and collection entries synchronized across desktop and mobile sidebars (Completed).

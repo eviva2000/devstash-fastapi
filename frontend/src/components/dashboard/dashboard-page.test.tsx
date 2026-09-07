@@ -149,6 +149,66 @@ test("renders dashboard overview and its server-provided item page", async () =>
   ).not.toBeInTheDocument();
 });
 
+test("shows live owner-scoped item type counts without mock-only categories", async () => {
+  apiMocks.fetchItems.mockResolvedValueOnce(itemPage([items[0]]));
+  renderDashboard("/dashboard?type=snippet&page=2");
+
+  const sidebar = screen.getByRole("complementary", {
+    name: "Dashboard navigation",
+  });
+  await waitFor(() =>
+    expect(
+      within(sidebar).getByRole("link", { name: "Snippets, 4 items" }),
+    ).toBeVisible(),
+  );
+  expect(
+    within(sidebar).getByRole("link", { name: "Prompts, 0 items" }),
+  ).toBeVisible();
+  expect(
+    within(sidebar).getByRole("link", { name: "Commands, 0 items" }),
+  ).toBeVisible();
+  expect(
+    within(sidebar).getByRole("link", { name: "Notes, 3 items" }),
+  ).toBeVisible();
+  const sidebarLinks = within(sidebar).getAllByRole("link");
+  expect(
+    sidebarLinks.some((link) => link.getAttribute("href") === "/items/files"),
+  ).toBe(false);
+  expect(
+    sidebarLinks.some((link) => link.getAttribute("href") === "/items/images"),
+  ).toBe(false);
+  expect(
+    sidebarLinks.some((link) => link.getAttribute("href") === "/items/links"),
+  ).toBe(false);
+});
+
+test("does not show invented item type counts while live data is unavailable", async () => {
+  let rejectItems: ((reason: Error) => void) | undefined;
+  apiMocks.fetchAllItems.mockReturnValueOnce(
+    new Promise<Item[]>((_resolve, reject) => {
+      rejectItems = reject;
+    }),
+  );
+  const user = userEvent.setup();
+  renderDashboard();
+
+  expect(
+    screen.getByRole("link", { name: "Snippets, count unavailable" }),
+  ).toBeVisible();
+  rejectItems?.(new Error("Sidebar item counts are unavailable."));
+
+  await user.click(screen.getByRole("button", { name: "Open global search" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Sidebar item counts are unavailable.",
+  );
+  expect(
+    screen.getByRole("link", {
+      name: "Snippets, count unavailable",
+      hidden: true,
+    }),
+  ).toBeInTheDocument();
+});
+
 test("shows only the three most recent collections", async () => {
   renderDashboard();
 
@@ -390,6 +450,7 @@ test("creates an item in a modal with a selectable snippet language", async () =
   const user = userEvent.setup();
   renderDashboard();
   await screen.findByRole("heading", { name: "No items yet" });
+  expect(screen.getByRole("link", { name: "Notes, 3 items" })).toBeVisible();
 
   await user.click(screen.getByRole("button", { name: "New item" }));
   const createDialog = screen.getByRole("dialog", { name: "Create item" });
@@ -470,6 +531,9 @@ test("creates an item in a modal with a selectable snippet language", async () =
     }),
   ).toHaveFocus();
   expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
+  expect(
+    screen.getByRole("link", { name: "Notes, 4 items", hidden: true }),
+  ).toBeInTheDocument();
 });
 
 test("returns focus to the New item button when the creation modal closes", async () => {
@@ -587,6 +651,11 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
   const user = userEvent.setup();
   renderDashboard();
 
+  expect(
+    await screen.findByRole("link", { name: "Snippets, 4 items" }),
+  ).toBeVisible();
+  expect(screen.getByRole("link", { name: "Prompts, 0 items" })).toBeVisible();
+
   const itemButton = await screen.findByRole("button", {
     name: "Open useAuth Hook",
   });
@@ -623,6 +692,12 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
     "text-violet-400",
   );
   expect(screen.getByTestId("location")).toHaveTextContent("/dashboard");
+  expect(
+    screen.getByRole("link", { name: "Snippets, 3 items", hidden: true }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Prompts, 1 item", hidden: true }),
+  ).toBeInTheDocument();
 
   await user.click(within(dialog).getByRole("button", { name: "Delete" }));
   const deleteAlert = screen.getByRole("alertdialog", {
@@ -645,6 +720,7 @@ test("views, edits, and deletes an item inside the drawer without routing", asyn
     screen.queryByRole("button", { name: `Open ${updated.title}` }),
   ).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New item" })).toHaveFocus();
+  expect(screen.getByRole("link", { name: "Prompts, 0 items" })).toBeVisible();
 });
 
 test("keeps an item visible and reports a failed delete", async () => {

@@ -9,7 +9,7 @@ import {
   Terminal,
 } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { User } from "@/api/auth";
@@ -127,6 +127,19 @@ export function DashboardPage({
   const globalSearch = useGlobalSearchItems();
   const collectionState = useCollections();
   const { collections } = collectionState;
+  const itemTypeCounts = useMemo(
+    () =>
+      globalSearch.items.reduce<Record<ItemType, number>>(
+        (counts, item) => {
+          counts[item.item_type] += 1;
+          return counts;
+        },
+        { snippet: 0, prompt: 0, command: 0, note: 0 },
+      ),
+    [globalSearch.items],
+  );
+  const sidebarItemTypeCounts =
+    globalSearch.state === "ready" ? itemTypeCounts : null;
   const updateSearch = useCallback(
     (changes: Record<string, string | undefined>) => {
       const next = new URLSearchParams(searchParams);
@@ -216,6 +229,7 @@ export function DashboardPage({
       <DashboardSidebar
         user={user}
         collections={collections}
+        itemTypeCounts={sidebarItemTypeCounts}
         collapsed={collapsed}
         ariaHidden={itemDrawer !== null ? true : undefined}
         onCollapse={() => setCollapsed((value) => !value)}
@@ -239,6 +253,7 @@ export function DashboardPage({
               mobile
               user={user}
               collections={collections}
+              itemTypeCounts={sidebarItemTypeCounts}
               onClose={closeNavigationDrawer}
               onLogout={onLogout}
             />

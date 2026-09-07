@@ -1,6 +1,18 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { authenticate, authenticatedHeaders, removeItem } from "./auth";
+
+async function sidebarItemTypeCount(page: Page, slug: string) {
+  const link = page.locator(`a[href="/items/${slug}"]`);
+  await expect(link).toHaveAttribute("aria-label", /, \d+ items?$/);
+  const label = await link.getAttribute("aria-label");
+  const count = label?.match(/, (\d+) items?$/)?.[1];
+  expect(
+    count,
+    `Expected a live count in sidebar label: ${label}`,
+  ).toBeDefined();
+  return Number(count);
+}
 
 test("shows the dashboard and supports desktop sidebar collapse", async ({
   page,
@@ -50,6 +62,64 @@ test("creates a collection and keeps it after reload", async ({
   await expect(
     palette.getByRole("option", { name: new RegExp(`${name}\\s+0 items`) }),
   ).toBeVisible();
+});
+
+test("keeps sidebar item type counts synchronized with item mutations", async ({
+  page,
+}, testInfo) => {
+  const title = `Sidebar count item ${Date.now()}`;
+  await authenticate(page, testInfo);
+  const initialNotes = await sidebarItemTypeCount(page, "notes");
+  const initialPrompts = await sidebarItemTypeCount(page, "prompts");
+
+  await page.getByRole("button", { name: "New item" }).click();
+  const createDialog = page.getByRole("dialog", { name: "Create item" });
+  await createDialog.getByLabel("Title").fill(title);
+  await createDialog.getByRole("combobox", { name: "Type" }).click();
+  await page.getByRole("option", { name: "Note", exact: true }).click();
+  await createDialog
+    .getByRole("textbox", { name: "Content" })
+    .fill("Live counts");
+  await createDialog
+    .getByRole("button", { name: "Create item", exact: true })
+    .click();
+
+  let drawer = page.getByRole("dialog", { name: title });
+  await expect(drawer).toBeVisible();
+  await expect(page.locator('a[href="/items/notes"]')).toHaveAttribute(
+    "aria-label",
+    `Notes, ${initialNotes + 1} ${initialNotes === 0 ? "item" : "items"}`,
+  );
+
+  await drawer.getByRole("button", { name: "Edit" }).click();
+  await drawer.getByRole("combobox", { name: "Type" }).click();
+  await page.getByRole("option", { name: "Prompt", exact: true }).click();
+  await drawer.getByRole("button", { name: "Save changes" }).click();
+  drawer = page.getByRole("dialog", { name: title });
+  await expect(drawer).toBeVisible();
+  await expect(page.locator('a[href="/items/notes"]')).toHaveAttribute(
+    "aria-label",
+    `Notes, ${initialNotes} ${initialNotes === 1 ? "item" : "items"}`,
+  );
+  await expect(page.locator('a[href="/items/prompts"]')).toHaveAttribute(
+    "aria-label",
+    `Prompts, ${initialPrompts + 1} ${initialPrompts === 0 ? "item" : "items"}`,
+  );
+
+  await drawer.getByRole("button", { name: "Delete" }).click();
+  await page
+    .getByRole("alertdialog", { name: `Delete “${title}”?` })
+    .getByRole("button", { name: "Delete item" })
+    .click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  await expect(page.locator('a[href="/items/prompts"]')).toHaveAttribute(
+    "aria-label",
+    `Prompts, ${initialPrompts} ${initialPrompts === 1 ? "item" : "items"}`,
+  );
+
+  await page.reload();
+  expect(await sidebarItemTypeCount(page, "notes")).toBe(initialNotes);
+  expect(await sidebarItemTypeCount(page, "prompts")).toBe(initialPrompts);
 });
 
 test("keeps the desktop sidebar fixed while dashboard content scrolls", async ({
