@@ -1,36 +1,33 @@
-# Current Feature: Collection Management
+# Current Feature: Production Deployment
 
 ## Status
 
-Completed
+In Progress
 
 ## Active Spec
 
-[Collection Management](features/collection-management.md)
+[Production Deployment](features/production-deployment.md)
 
 ## Goals
 
-- Make each dashboard collection card open an accessible collection drawer.
-- Let the authenticated owner edit and persist a collection's name and description.
-- Let the authenticated owner delete a collection only after explicit confirmation
-  in a shadcn AlertDialog.
-- Synchronize successful edits and deletions across every collection-backed dashboard
-  surface without a full-page reload.
-- Let the owner add existing items to or remove items from an open collection drawer.
-- Provide clear saving, deletion, validation, success, and failure feedback.
+- Deploy the React frontend and FastAPI backend as one same-origin web service so
+  the existing relative API requests and secure session cookies work unchanged.
+- Define a free Render web service and connect it to a free Neon PostgreSQL database.
+- Build a deterministic production container that installs locked dependencies,
+  builds the frontend, serves the application, and listens on Render's assigned
+  port.
+- Apply Alembic migrations manually before new application code receives traffic.
+- Document production configuration, first deployment, verification, and rollback.
 
 ## Notes
 
-- Add owner-scoped, CSRF-protected PATCH and DELETE collection endpoints using the
-  existing repository/service/API boundaries.
-- Reuse the collection creation validation limits: name and description are required,
-  with maximum lengths of 200 and 2,000 characters.
-- Open the drawer from dashboard collection cards; sidebar and global-search
-  selections keep their current navigation behavior.
-- Persist owner-scoped item membership and derive collection counts and type badges;
-  soft deletion and editing favorites remain out of scope.
-- Show only current members in drawer read mode; expose non-member items through a
-  shadcn Select while editing, with removal controls for existing members.
+- Use a free Render Docker web service with a separate Neon PostgreSQL database.
+- Keep frontend and API on one HTTPS origin because authentication currently uses
+  secure `SameSite=Lax` cookies and exact-origin CSRF checks.
+- Disable automatic deploys and run migrations manually before each deployment.
+- Neon supplies a `postgresql://` connection string; the application requires
+  the Psycopg SQLAlchemy dialect. Client IP handling behind Render's proxy also
+  needs verification to preserve authentication rate limiting.
 
 ## History
 

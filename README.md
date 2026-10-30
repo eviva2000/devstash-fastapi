@@ -74,6 +74,42 @@ the frontend is isolated under `frontend/` with its own dependencies and command
 
 ## Setup
 
+### Free deployment (Render and Neon)
+
+The repository includes a Docker image and a Render Blueprint for a small,
+same-origin deployment. Render's free web service sleeps after inactivity; Neon
+also scales its database to zero. Expect cold starts and free-tier usage limits.
+These services are intended for low-traffic projects, not guaranteed availability.
+
+1. Create a Neon free PostgreSQL project. Keep the connection string private and
+   use TLS with certificate verification, such as `sslmode=verify-full` and
+   `sslrootcert=system` where supported by your PostgreSQL client.
+2. Create a Render Blueprint from this repository and select the deployment branch.
+   Configure `DATABASE_URL` using the Neon connection string, replacing only its
+   `postgresql://` prefix with `postgresql+psycopg://`. Configure
+   `TRUSTED_ORIGINS` as a JSON array containing the exact HTTPS Render URL, for
+   example `["https://your-service.onrender.com"]`. Do not commit either value.
+3. Before the first deployment, and before deploying each new revision, run
+   `uv run alembic upgrade head` locally with `DATABASE_URL` set to the Neon URL
+   using the same Psycopg prefix. Check the targeted database carefully first.
+   Do not put credentials into shell history or commit them to the repository.
+4. Deploy the reviewed revision manually in Render. Automatic deploys are disabled
+   because free web services do not support pre-deploy migration commands. For
+   schema changes, verify compatibility with the currently running version before
+   migrating; take a backup first. An application rollback does not undo a migration.
+5. Verify `/health`, registration, sign-in, a page refresh on `/dashboard`, and
+   item creation. Check Render logs and Neon usage. Test that rate limiting uses
+   actual client IPs behind Render's proxy before opening registration publicly.
+
+If a release fails, redeploy the last working revision in Render and verify the
+application and logs. Review database migration compatibility separately before
+any downgrade. Free plans have limits and policies that can change; independently
+back up important data and review provider usage and billing settings.
+
+See [Render free services](https://render.com/docs/free),
+[Render deployment commands](https://render.com/docs/deploys), and
+[Neon connection guidance](https://neon.com/docs/connect/connect-from-any-app).
+
 Requirements:
 
 - Python 3.12 or later
