@@ -1,6 +1,7 @@
 """Application entry point and HTTP routes."""
 
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, Request, Response, status
@@ -14,6 +15,7 @@ from devstash.api.auth import router as auth_router
 from devstash.api.collections import router as collections_router
 from devstash.api.items import router as items_router
 from devstash.core.config import get_settings
+from devstash.frontend import mount_frontend
 
 
 class HealthResponse(BaseModel):
@@ -79,3 +81,8 @@ async def health_check() -> HealthResponse:
     """Report that the API process is ready to receive requests."""
 
     return HealthResponse(status="ok", service="devstash-api")
+
+
+frontend_directory = Path(__file__).parent / "static"
+if frontend_directory.is_dir():
+    mount_frontend(app, frontend_directory)
